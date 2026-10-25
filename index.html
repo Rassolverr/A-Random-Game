@@ -27,33 +27,33 @@
   /* ---------- HUD ---------- */
   #hud{
     flex:0 0 auto;
-    display:flex;justify-content:space-between;align-items:center;gap:6px;
-    padding:6px 8px;
-    padding-top:calc(6px + env(safe-area-inset-top));
+    display:flex;justify-content:space-between;align-items:center;gap:4px;
+    padding:5px 6px;
+    padding-top:calc(5px + env(safe-area-inset-top));
     background:linear-gradient(180deg,rgba(24,5,48,.98),rgba(16,3,32,.85));
     border-bottom:1px solid rgba(180,80,255,.35);
     box-shadow:0 4px 26px rgba(140,0,255,.25);
     z-index:5;
   }
-  .hud-group{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0;}
+  .hud-group{display:flex;align-items:center;gap:3px;flex-wrap:wrap;min-width:0;}
   .stat{
-    display:flex;align-items:center;gap:3px;
-    font-size:10px;font-weight:700;letter-spacing:.3px;
-    padding:4px 6px;border-radius:6px;
+    display:flex;align-items:center;gap:2px;
+    font-size:9.5px;font-weight:700;letter-spacing:.2px;
+    padding:4px 5px;border-radius:5px;
     background:rgba(255,255,255,.055);
     border:1px solid rgba(255,255,255,.1);
     white-space:nowrap;
   }
-  .stat .ico{font-size:11px;line-height:1;}
-  .stat .val{font-size:11px;}
+  .stat .ico{font-size:10px;line-height:1;}
+  .stat .val{font-size:10.5px;}
   #hpVal{color:#ff5a7a;}
   #crVal{color:var(--cyan);}
   #colVal{color:var(--purple);}
   #scoreVal{color:var(--yellow);}
 
   .btn{
-    font-family:inherit;font-size:9.5px;font-weight:800;letter-spacing:.7px;
-    padding:7px 9px;border-radius:7px;cursor:pointer;
+    font-family:inherit;font-size:9px;font-weight:800;letter-spacing:.5px;
+    padding:6px 7px;border-radius:6px;cursor:pointer;
     border:1px solid rgba(255,255,255,.25);
     background:rgba(255,255,255,.06);color:#fff;
     transition:transform .1s, box-shadow .25s, background .25s, opacity .25s;
@@ -70,6 +70,15 @@
     box-shadow:0 0 12px rgba(255,45,149,.35);
   }
   .btn.shop.ready{animation:pulseBtn 1.1s ease-in-out infinite;}
+  .btn.mute{
+    border-color:rgba(255,255,255,.35);
+    font-size:13px;padding:5px 7px;line-height:1;
+    background:rgba(255,255,255,.08);
+  }
+  .btn.mute.muted{
+    border-color:rgba(255,90,90,.6);
+    background:rgba(255,60,60,.15);
+  }
   @keyframes pulseBtn{
     0%,100%{box-shadow:0 0 12px rgba(255,45,149,.4);background:rgba(255,45,149,.06);}
     50%{box-shadow:0 0 28px rgba(255,45,149,.95);background:rgba(255,45,149,.25);}
@@ -81,7 +90,7 @@
 
   /* ---------- TOASTS ---------- */
   #toasts{
-    position:absolute;top:calc(52px + env(safe-area-inset-top));left:0;right:0;
+    position:absolute;top:calc(48px + env(safe-area-inset-top));left:0;right:0;
     display:flex;flex-direction:column;align-items:center;gap:6px;
     pointer-events:none;z-index:40;padding:0 12px;
   }
@@ -207,6 +216,10 @@
   .upg .uname{font-size:10.5px;font-weight:900;letter-spacing:1px;color:var(--yellow);}
   .upg .udesc{font-size:9.5px;opacity:.7;line-height:1.4;}
   .upg .ucost{font-size:10px;font-weight:800;color:var(--cyan);margin-top:2px;}
+  .upg .ulevel{
+    font-size:9px;color:var(--pink);font-weight:800;letter-spacing:1px;
+    margin-top:1px;
+  }
 
   .over-stats{display:flex;flex-direction:column;gap:6px;margin:16px 0 20px;}
   .over-row{
@@ -233,6 +246,7 @@
       <div class="stat"><span class="ico">★</span><span class="val" id="scoreVal">0</span></div>
     </div>
     <div class="hud-group">
+      <button id="muteBtn" class="btn mute" title="Activer / désactiver le son">🔊</button>
       <button id="laserBtn" class="btn laser" disabled>LASER ×0</button>
       <button id="shopBtn" class="btn shop">SHOP</button>
     </div>
@@ -289,13 +303,238 @@
 'use strict';
 
 /* ============================================================
+   AUDIO — Web Audio API (100% synthèse, aucun fichier externe)
+   ============================================================ */
+const Audio = {
+  ctx: null,
+  master: null,
+  musicGain: null,
+  sfxGain: null,
+  muted: false,
+  musicInterval: null,
+  _nextTime: 0,
+  initialized: false,
+  failed: false,
+
+  init(){
+    if (this.initialized) return;
+    this.initialized = true;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC){ this.failed = true; return; }
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = this.muted ? 0 : 0.6;
+      this.master.connect(this.ctx.destination);
+
+      this.musicGain = this.ctx.createGain();
+      this.musicGain.gain.value = 0.28;
+      this.musicGain.connect(this.master);
+
+      this.sfxGain = this.ctx.createGain();
+      this.sfxGain.gain.value = 0.85;
+      this.sfxGain.connect(this.master);
+    } catch(e){
+      this.failed = true;
+      this.ctx = null;
+    }
+  },
+
+  resume(){
+    try {
+      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    } catch(e){}
+  },
+
+  setMuted(m){
+    this.muted = m;
+    try { localStorage.setItem('neonDef_muted_v1', m ? '1' : '0'); } catch(e){}
+    if (this.master && this.ctx){
+      try {
+        this.master.gain.setTargetAtTime(m ? 0 : 0.6, this.ctx.currentTime, 0.04);
+      } catch(e){}
+    }
+    if (!m && this.ctx){
+      this._nextTime = this.ctx.currentTime + 0.1;
+      this.musicTick();
+    }
+  },
+
+  /* --- Oscillateur générique (robuste) --- */
+  _tone(bus, freq, dur, type, gainVal, when, slideTo){
+    if (!this.ctx || !bus) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      const g   = this.ctx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(Math.max(1, freq), when);
+      if (slideTo){
+        osc.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), when + dur);
+      }
+      g.gain.setValueAtTime(0.0001, when);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gainVal), when + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+      osc.connect(g);
+      g.connect(bus);
+      osc.start(when);
+      osc.stop(when + dur + 0.05);
+    } catch(e){}
+  },
+
+  /* --- Musique synthwave en boucle --- */
+  playMusic(){
+    if (!this.ctx || this.musicInterval) return;
+    if (this.muted) return;
+    this.resume();
+    this._nextTime = this.ctx.currentTime + 0.1;
+    this.musicTick();
+    this.musicInterval = setInterval(() => this.musicTick(), 1000);
+  },
+
+  musicTick(){
+    if (!this.ctx || this.muted) return;
+    const now = this.ctx.currentTime;
+    if (this._nextTime < now + 0.3){
+      const startAt = Math.max(now + 0.05, this._nextTime);
+      this._scheduleMusicLoop(startAt);
+      // boucle = 4 mesures × 8 pas × 0.3 s = 9.6 s
+      this._nextTime = startAt + 4 * 8 * 0.3;
+    }
+  },
+
+  _scheduleMusicLoop(startTime){
+    const step = 0.3;
+    // Progression : Am – F – C – G (mineur, très synthwave)
+    const bassNotes = [110.00, 87.31, 130.81, 98.00];
+    const melodies = [
+      [440.00, 523.25, 659.25, 880.00, 659.25, 523.25, 440.00, 329.63],
+      [349.23, 440.00, 523.25, 698.46, 523.25, 440.00, 349.23, 261.63],
+      [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25, 523.25, 392.00],
+      [392.00, 493.88, 587.33, 783.99, 587.33, 493.88, 392.00, 293.66]
+    ];
+
+    for (let bar = 0; bar < 4; bar++){
+      const barStart = startTime + bar * 8 * step;
+      const bass = bassNotes[bar];
+      const mel  = melodies[bar];
+
+      // Basse : noires (toutes les 2 croches)
+      for (let i = 0; i < 4; i++){
+        this._tone(this.musicGain, bass, step * 1.7, 'triangle', 0.22, barStart + i * step * 2);
+      }
+      // Mélodie : croches (arpège)
+      for (let i = 0; i < 8; i++){
+        this._tone(this.musicGain, mel[i], step * 0.78, 'square', 0.07, barStart + i * step);
+      }
+      // Nappe : accord tenu
+      this._tone(this.musicGain, bass * 2.00, step * 7.8, 'sine', 0.045, barStart);
+      this._tone(this.musicGain, bass * 2.52, step * 7.8, 'sine', 0.030, barStart);
+    }
+  },
+
+  /* --- SFX --- */
+  sfxClick(){
+    if (!this.ctx || this.muted) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    this._tone(this.sfxGain, 880,  0.05, 'square', 0.11, t);
+    this._tone(this.sfxGain, 1320, 0.04, 'square', 0.05, t + 0.012);
+  },
+
+  sfxHit(){
+    if (!this.ctx || this.muted) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    this._tone(this.sfxGain, 1400, 0.09, 'sawtooth', 0.09, t, 480);
+    this._tone(this.sfxGain, 2400, 0.05, 'square',   0.04, t);
+  },
+
+  sfxKill(){
+    if (!this.ctx || this.muted) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    try {
+      const dur = 0.28;
+      const buf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * dur), this.ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++){
+        const env = Math.pow(1 - i / data.length, 2);
+        data[i] = (Math.random() * 2 - 1) * env;
+      }
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(2200, t);
+      filter.frequency.exponentialRampToValueAtTime(180, t + dur);
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.20, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      src.connect(filter);
+      filter.connect(g);
+      g.connect(this.sfxGain);
+      src.start(t);
+      src.stop(t + dur + 0.05);
+    } catch(e){}
+    this._tone(this.sfxGain, 190, 0.18, 'triangle', 0.11, t, 55);
+  },
+
+  sfxBuy(){
+    if (!this.ctx || this.muted) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    for (let i = 0; i < notes.length; i++){
+      this._tone(this.sfxGain, notes[i], 0.16, 'square', 0.10, t + i * 0.065);
+    }
+  },
+
+  sfxBaseHit(){
+    if (!this.ctx || this.muted) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    this._tone(this.sfxGain, 110, 0.35, 'sawtooth', 0.22, t, 42);
+    this._tone(this.sfxGain, 55,  0.42, 'square',   0.14, t + 0.04, 30);
+  },
+
+  sfxGameOver(){
+    if (!this.ctx || this.muted) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    const notes = [523.25, 440.00, 349.23, 261.63, 196.00];
+    for (let i = 0; i < notes.length; i++){
+      this._tone(this.sfxGain, notes[i], 0.42, 'triangle', 0.15, t + i * 0.16);
+    }
+  },
+
+  sfxBossSpawn(){
+    if (!this.ctx || this.muted) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    this._tone(this.sfxGain, 140, 0.55, 'sawtooth', 0.18, t, 70);
+    this._tone(this.sfxGain, 280, 0.45, 'square',   0.09, t + 0.08);
+  },
+
+  sfxBossKill(){
+    if (!this.ctx || this.muted) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    const notes = [392.00, 523.25, 659.25, 783.99, 1046.50];
+    for (let i = 0; i < notes.length; i++){
+      this._tone(this.sfxGain, notes[i], 0.22, 'square', 0.11, t + i * 0.07);
+    }
+    this._tone(this.sfxGain, 1568, 0.35, 'sine', 0.08, t + 0.35);
+  }
+};
+
+/* ============================================================
    CONSTANTES
    ============================================================ */
 const START_COLS       = 5;
 const MAX_COLS         = 10;
 const KILLS_PER_COLUMN = 15;
 const BOSS_EVERY       = 50;
-const FIRE_LOCK_MS     = 100;          // ← verrou anti double-clic (le fix)
+const FIRE_LOCK_MS     = 100;
 const PROJ_SPEED       = 2600;
 const BASE_FIRE_CD     = 0.26;
 const UPGRADE_COST     = 100;
@@ -322,13 +561,25 @@ const ACHIEVEMENTS = {
 const UPGRADES = {
   hp:     { icon:'❤', name:'BASE RENFORCÉE', desc:'+5 PV max & soigne 5 PV',
             apply(){ G.maxHp += 5; G.hp = Math.min(G.maxHp, G.hp + 5); } },
+
   fire:   { icon:'⚡', name:'CADENCE RAPIDE', desc:'Tirs 18% plus rapides et plus larges',
             apply(){ G.fireCdMul = Math.max(0.30, G.fireCdMul * 0.82); G.projW = Math.min(2.6, G.projW * 1.12); } },
+
   shield: { icon:'🛡', name:'BOUCLIER',       desc:'Annule le prochain dégât subi',
             apply(){ G.shield++; } },
+
   laser:  { icon:'🔷', name:'LASER ORBITAL',  desc:'+1 charge : détruit tous les ennemis',
-            apply(){ G.laserCharges++; } }
+            apply(){ G.laserCharges++; } },
+
+  damage: { icon:'💥', name:'PUISSANCE DE FEU', desc:'+1 dégât par tir',
+            getCost(){ return Math.floor(100 * Math.pow(1.7, G.damageLevel - 1)); },
+            apply(){ G.damageLevel++; } }
 };
+
+function getCost(key){
+  const U = UPGRADES[key];
+  return U.getCost ? U.getCost() : UPGRADE_COST;
+}
 
 /* ============================================================
    ÉTAT
@@ -347,9 +598,10 @@ const G = {
   upgrades: 0,
   fireCdMul: 1,
   projW: 1,
+  damageLevel: 1,
   bossesKilled: 0,
   bossSpawnedAt: 0,
-  fireLockUntil: 0,       // ← verrou global anti double-clic
+  fireLockUntil: 0,
 
   enemies: [],
   projectiles: [],
@@ -373,6 +625,7 @@ const G = {
    ============================================================ */
 const LS_BEST = 'neonDef_bestScore_v1';
 const LS_ACH  = 'neonDef_achievements_v1';
+const LS_MUTE = 'neonDef_muted_v1';
 
 let bestScore = 0;
 try { bestScore = parseInt(localStorage.getItem(LS_BEST) || '0', 10) || 0; } catch(e){}
@@ -382,6 +635,8 @@ try {
   const raw = localStorage.getItem(LS_ACH);
   if (raw) unlocked = new Set(JSON.parse(raw));
 } catch(e){ unlocked = new Set(); }
+
+try { Audio.muted = localStorage.getItem(LS_MUTE) === '1'; } catch(e){}
 
 function saveAch(){
   try { localStorage.setItem(LS_ACH, JSON.stringify(Array.from(unlocked))); } catch(e){}
@@ -424,7 +679,7 @@ function resize(){
 }
 
 /* ============================================================
-   GLOW SPRITES (pré-rendus → rapides)
+   GLOW SPRITES
    ============================================================ */
 const glowSprites = {};
 function makeGlowSprite(rgb){
@@ -469,7 +724,7 @@ function setCols(n){
 }
 
 /* ============================================================
-   JUICE : particules / shake
+   JUICE
    ============================================================ */
 function addShake(t){ G.shake = Math.max(G.shake, t); }
 
@@ -500,9 +755,17 @@ const colEl   = document.getElementById('colVal');
 const scoreEl = document.getElementById('scoreVal');
 const laserBtn= document.getElementById('laserBtn');
 const shopBtn = document.getElementById('shopBtn');
+const muteBtn = document.getElementById('muteBtn');
 const toastsEl= document.getElementById('toasts');
 
 let lastHud = { hp:'', cr:'', col:'', score:'', laser:'', ready:null };
+
+function canAffordAny(){
+  for (const k in UPGRADES){
+    if (G.crystals >= getCost(k)) return true;
+  }
+  return false;
+}
 
 function updateHUD(){
   const hpTxt    = G.hp + '/' + G.maxHp + (G.shield > 0 ? ' ⛨' + G.shield : '');
@@ -519,7 +782,7 @@ function updateHUD(){
 
   laserBtn.disabled = (G.laserCharges <= 0 || G.state !== 'playing');
 
-  const ready = G.crystals >= UPGRADE_COST;
+  const ready = canAffordAny();
   if (lastHud.ready !== ready){
     lastHud.ready = ready;
     shopBtn.classList.toggle('ready', ready);
@@ -528,6 +791,11 @@ function updateHUD(){
       showToast('◆ AMÉLIORATION DISPONIBLE ! Ouvre le SHOP', 'gold');
     }
   }
+}
+
+function updateMuteBtn(){
+  muteBtn.textContent = Audio.muted ? '🔇' : '🔊';
+  muteBtn.classList.toggle('muted', Audio.muted);
 }
 
 function showToast(text, cls){
@@ -572,17 +840,14 @@ function renderAchList(){
 }
 
 /* ============================================================
-   JEU : tir (avec verrou anti double-clic)
+   JEU : tir (verrou anti double-clic)
    ============================================================ */
 function fire(col){
   if (G.state !== 'playing' || G.paused) return;
   if (col < 0 || col >= G.cols) return;
 
-  // Verrou global : bloque tout tir (même sur une AUTRE colonne) pendant 100 ms
   const now = performance.now();
   if (now < G.fireLockUntil) return;
-
-  // Cooldown propre à la colonne
   if (G.colCd[col] > 0) return;
 
   G.fireLockUntil = now + FIRE_LOCK_MS;
@@ -603,7 +868,6 @@ function handleTap(px){
   if (col < 0) col = 0;
   if (col >= G.cols) col = G.cols - 1;
 
-  // Aim-assist (indispensable avec des colonnes étroites)
   let hasEnemy = false;
   for (let i = 0; i < G.enemies.length; i++){
     if (G.enemies[i].col === col){ hasEnemy = true; break; }
@@ -628,9 +892,11 @@ function damageBase(n){
   if (G.shield > 0){
     G.shield--;
     addShake(0.14);
+    Audio.sfxClick();
   } else {
     G.hp -= n;
     addShake(0.28);
+    Audio.sfxBaseHit();
     if (G.hp <= 0){
       G.hp = 0;
       updateHUD();
@@ -653,11 +919,12 @@ function killEnemy(e){
     addShake(0.55);
     boom((e.col + 0.5) * colW, e.y, e.color, 40);
     boom((e.col + 0.5) * colW, e.y, '#ffffff', 20);
+    Audio.sfxBossKill();
   } else {
     boom((e.col + 0.5) * colW, e.y, e.color, e.type === 'tank' ? 20 : 13);
+    Audio.sfxKill();
   }
 
-  // Progression colonnes
   if (G.kills % KILLS_PER_COLUMN === 0 && G.cols < MAX_COLS){
     setCols(G.cols + 1);
     if (G.cols === MAX_COLS){
@@ -667,7 +934,6 @@ function killEnemy(e){
     }
   }
 
-  // Spawn boss
   if (G.kills >= G.bossSpawnedAt + BOSS_EVERY){
     let hasBoss = false;
     for (let i = 0; i < G.enemies.length; i++){
@@ -690,6 +956,7 @@ function useLaser(){
   G.laserCharges--;
   G.laserFlash = 1;
   addShake(0.4);
+  Audio.sfxClick();
 
   const list = G.enemies.slice();
   G.enemies.length = 0;
@@ -763,17 +1030,14 @@ function spawnBoss(){
 
   showToast('👑 BOSS DORÉ — 10 COUPS À PORTER !', 'gold');
   addShake(0.3);
+  Audio.sfxBossSpawn();
 }
 
 function spawnWave(){
   if (G.enemies.length >= MAX_ENEMIES) return;
-
-  // Multi-spawn : 10% à 5 cols, ~35% à 10 cols
   const multiChance = 0.10 + (G.cols - 5) * 0.05;
   let count = 1;
-  if (Math.random() < multiChance){
-    count = Math.random() < 0.25 ? 3 : 2;
-  }
+  if (Math.random() < multiChance) count = Math.random() < 0.25 ? 3 : 2;
 
   const used = new Set();
   for (let i = 0; i < count; i++){
@@ -800,25 +1064,21 @@ function update(dt){
   G.time += dt;
   G.gridOffset += dt * 24;
 
-  // Spawn
   G.spawnTimer -= dt;
   if (G.spawnTimer <= 0){
     spawnWave();
     G.spawnTimer = spawnInterval();
   }
 
-  // Cooldowns / flash par colonne
   for (let i = 0; i < G.cols; i++){
     if (G.colCd[i] > 0)    G.colCd[i]    = Math.max(0, G.colCd[i] - dt);
     if (G.colFlash[i] > 0) G.colFlash[i] = Math.max(0, G.colFlash[i] - dt * 5.5);
   }
 
-  // Ennemis
   for (let i = G.enemies.length - 1; i >= 0; i--){
     const e = G.enemies[i];
     e.y += e.speed * dt;
     e.rot += e.rotSpeed * dt;
-
     if (e.type === 'ghost') e.ghostPhase += dt * e.ghostSpeed;
 
     if (e.y + e.r >= playH){
@@ -829,7 +1089,7 @@ function update(dt){
     }
   }
 
-  // Projectiles (avec détection anti-tunneling)
+  // Projectiles + DÉGÂTS (damageLevel)
   const seg = PROJ_SPEED * dt;
   let pw = 0;
   for (let i = 0; i < G.projectiles.length; i++){
@@ -847,7 +1107,7 @@ function update(dt){
     }
 
     if (hit){
-      hit.hp--;
+      hit.hp -= G.damageLevel;
       if (hit.hp <= 0){
         const idx = G.enemies.indexOf(hit);
         if (idx >= 0) G.enemies.splice(idx, 1);
@@ -855,6 +1115,7 @@ function update(dt){
       } else {
         G.colFlash[hit.col] = 1;
         boom((hit.col + 0.5) * colW, hit.y, hit.color, 5);
+        Audio.sfxHit();
       }
       continue;
     }
@@ -864,7 +1125,6 @@ function update(dt){
   }
   G.projectiles.length = pw;
 
-  // Particules (compaction → pas de fuite mémoire)
   let w = 0;
   const drag = Math.exp(-2.6 * dt);
   for (let i = 0; i < G.particles.length; i++){
@@ -937,11 +1197,9 @@ function render(){
     ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
   }
 
-  // Fond
   ctx.fillStyle = bgGrad || '#0a0316';
   ctx.fillRect(-50, -50, W + 100, H + 100);
 
-  // Grille rétro-wave
   const gs = 48;
   ctx.lineWidth = 1;
   ctx.strokeStyle = 'rgba(150,70,255,0.10)';
@@ -957,14 +1215,12 @@ function render(){
   }
   ctx.stroke();
 
-  // Halo bas
   const halo = ctx.createLinearGradient(0, playH - 140, 0, playH);
   halo.addColorStop(0, 'rgba(176,38,255,0)');
   halo.addColorStop(1, 'rgba(176,38,255,0.16)');
   ctx.fillStyle = halo;
   ctx.fillRect(0, playH - 140, W, 140);
 
-  // Couloirs
   for (let i = 0; i < G.cols; i++){
     const x = i * colW;
     ctx.fillStyle = G.colFill[i];
@@ -982,7 +1238,6 @@ function render(){
     }
   }
 
-  // Séparateurs
   ctx.strokeStyle = 'rgba(255,255,255,0.07)';
   ctx.beginPath();
   for (let i = 0; i <= G.cols; i++){
@@ -992,7 +1247,6 @@ function render(){
   }
   ctx.stroke();
 
-  // Particules
   if (G.particles.length){
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < G.particles.length; i++){
@@ -1007,34 +1261,29 @@ function render(){
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  // Ennemis
   for (let i = 0; i < G.enemies.length; i++){
     const e = G.enemies[i];
     const x = (e.col + 0.5) * colW;
     const gr = e.r * 3.1;
 
-    // Ghost : clignote (visible ~50% du temps)
     let alpha = 1;
     if (e.type === 'ghost'){
       const s = Math.sin(e.ghostPhase);
       alpha = 0.06 + 0.94 * Math.max(0, s);
     }
 
-    // Glow
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.85 * alpha;
     ctx.drawImage(e.sprite, x - gr, e.y - gr, gr * 2, gr * 2);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
 
-    // Forme
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(x, e.y);
     ctx.rotate(e.rot);
 
     if (e.type === 'boss'){
-      // Boss : or + contour sombre
       ctx.fillStyle = '#ffd700';
       pathShape(e.shape, e.r);
       ctx.fill();
@@ -1046,9 +1295,8 @@ function render(){
       pathShape(e.shape, e.r);
       ctx.fill();
 
-      // Cœur blanc pour ennemis multi-PV (tank)
       if (TYPES[e.type].hp > 1){
-        const hpRatio = e.hp / TYPES[e.type].hp;
+        const hpRatio = Math.max(0, e.hp / TYPES[e.type].hp);
         ctx.fillStyle = 'rgba(255,255,255,0.92)';
         pathShape(e.shape, e.r * (0.28 + 0.32 * hpRatio));
         ctx.fill();
@@ -1058,12 +1306,11 @@ function render(){
     ctx.restore();
     ctx.globalAlpha = 1;
 
-    // Barre de PV (tank + boss)
     if (TYPES[e.type].hp > 1){
       const barW = e.type === 'boss' ? e.r * 3 : e.r * 2;
       const barH = e.type === 'boss' ? 5 : 3;
       const barY = e.y + e.r + (e.type === 'boss' ? 10 : 6);
-      const ratio = e.hp / TYPES[e.type].hp;
+      const ratio = Math.max(0, e.hp / TYPES[e.type].hp);
 
       ctx.globalAlpha = alpha;
       ctx.fillStyle = 'rgba(0,0,0,0.65)';
@@ -1079,7 +1326,6 @@ function render(){
     }
   }
 
-  // Projectiles
   for (let i = 0; i < G.projectiles.length; i++){
     const p = G.projectiles[i];
     const x = (p.col + 0.5) * colW;
@@ -1096,7 +1342,6 @@ function render(){
     ctx.fillRect(x - p.w * 0.5, p.y - 10, p.w, 22);
   }
 
-  // Base
   const hpRatio = G.maxHp > 0 ? G.hp / G.maxHp : 0;
   const hpCol = hpRatio > 0.6 ? '#39ff14' : hpRatio > 0.3 ? '#ffe600' : '#ff2d95';
 
@@ -1115,7 +1360,6 @@ function render(){
   ctx.fillRect(0, playH - 5, W, 8);
   ctx.globalAlpha = 1;
 
-  // Bouclier
   if (G.shield > 0){
     ctx.strokeStyle = 'rgba(0,229,255,0.85)';
     ctx.lineWidth = 2;
@@ -1127,7 +1371,6 @@ function render(){
     ctx.setLineDash([]);
   }
 
-  // Barre de PV
   const barY = playH + baseH * 0.5 - 5;
   const barW = W - 36;
   ctx.fillStyle = 'rgba(255,255,255,0.09)';
@@ -1139,7 +1382,6 @@ function render(){
   ctx.fillRect(18, barY, barW * hpRatio, 3);
   ctx.globalAlpha = 1;
 
-  // Flash laser
   if (G.laserFlash > 0.01){
     ctx.fillStyle = 'rgba(0,229,255,' + (G.laserFlash * 0.35).toFixed(3) + ')';
     ctx.fillRect(-50, -50, W + 100, H + 100);
@@ -1192,38 +1434,49 @@ const shopGrid   = document.getElementById('shopGrid');
 const shopCrEl   = document.getElementById('shopCr');
 const startBestEl= document.getElementById('startBest');
 
-function buildShop(){
+function renderShop(){
+  shopCrEl.textContent = G.crystals;
   shopGrid.innerHTML = '';
+
   for (const key in UPGRADES){
     const U = UPGRADES[key];
+    const cost = getCost(key);
+    const canBuy = G.crystals >= cost;
     const b = document.createElement('button');
     b.className = 'upg';
-    b.dataset.key = key;
+    b.disabled = !canBuy;
+
+    let extra = '';
+    if (key === 'damage'){
+      extra = '<span class="ulevel">NIV. ' + G.damageLevel + ' → ' + (G.damageLevel + 1) + ' (dégât ' + (G.damageLevel + 1) + ')</span>';
+    } else if (key === 'shield' && G.shield > 0){
+      extra = '<span class="ulevel">ACTIFS : ' + G.shield + '</span>';
+    } else if (key === 'laser' && G.laserCharges > 0){
+      extra = '<span class="ulevel">CHARGES : ' + G.laserCharges + '</span>';
+    }
+
     b.innerHTML =
       '<span class="uicon">' + U.icon + '</span>' +
       '<span class="uname">' + U.name + '</span>' +
       '<span class="udesc">' + U.desc + '</span>' +
-      '<span class="ucost">◆ ' + UPGRADE_COST + '</span>';
+      extra +
+      '<span class="ucost">◆ ' + cost + '</span>';
+
     b.addEventListener('click', function(){ buy(key); });
     shopGrid.appendChild(b);
   }
 }
 
-function renderShop(){
-  shopCrEl.textContent = G.crystals;
-  const canBuy = G.crystals >= UPGRADE_COST;
-  const buttons = shopGrid.querySelectorAll('.upg');
-  for (let i = 0; i < buttons.length; i++) buttons[i].disabled = !canBuy;
-}
-
 function buy(key){
-  if (G.crystals < UPGRADE_COST) return;
-  G.crystals -= UPGRADE_COST;
+  const cost = getCost(key);
+  if (G.crystals < cost) return;
+  G.crystals -= cost;
   UPGRADES[key].apply();
   G.upgrades++;
   updateHUD();
   checkAchievements();
   renderShop();
+  Audio.sfxBuy();
   showToast('✅ ' + UPGRADES[key].name + ' ACHETÉE', 'gold');
 }
 
@@ -1254,6 +1507,7 @@ function startGame(){
   G.upgrades     = 0;
   G.fireCdMul    = 1;
   G.projW        = 1;
+  G.damageLevel  = 1;
   G.bossesKilled = 0;
   G.bossSpawnedAt= 0;
   G.shake        = 0;
@@ -1275,6 +1529,11 @@ function startGame(){
   overModal.classList.add('hidden');
   shopModal.classList.add('hidden');
 
+  // Audio : init + musique
+  Audio.init();
+  Audio.resume();
+  Audio.playMusic();
+
   last = performance.now();
 }
 
@@ -1284,6 +1543,7 @@ function gameOver(){
   G.enemies.length = 0;
   G.projectiles.length = 0;
   addShake(0.6);
+  Audio.sfxGameOver();
 
   const isNewBest = G.crystalsEarned > bestScore;
   if (isNewBest){
@@ -1296,7 +1556,8 @@ function gameOver(){
     '<div class="over-row"><span>★ Meilleur score</span><b>' + bestScore + '</b></div>' +
     '<div class="over-row"><span>Ennemis éliminés</span><b>' + G.kills + '</b></div>' +
     '<div class="over-row"><span>Colonnes atteintes</span><b>' + G.cols + '</b></div>' +
-    '<div class="over-row"><span>Boss vaincus</span><b>' + G.bossesKilled + '</b></div>';
+    '<div class="over-row"><span>Boss vaincus</span><b>' + G.bossesKilled + '</b></div>' +
+    '<div class="over-row"><span>Puissance de feu</span><b>Niv. ' + G.damageLevel + '</b></div>';
 
   overModal.classList.remove('hidden');
   updateHUD();
@@ -1314,7 +1575,6 @@ canvas.addEventListener('pointerdown', function(e){
 
 canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); });
 
-// Clavier : chiffres + AZERTY/QWERTY sur la même rangée de colonnes
 const KEYMAP = {};
 '1234567890'.split('').forEach(function(c, i){ KEYMAP[c] = i; });
 'azertyuiop'.split('').forEach(function(c, i){ KEYMAP[c] = i; });
@@ -1341,11 +1601,47 @@ window.addEventListener('keydown', function(e){
   }
 });
 
-document.getElementById('startBtn').addEventListener('click', startGame);
-document.getElementById('restartBtn').addEventListener('click', startGame);
-document.getElementById('shopBtn').addEventListener('click', openShop);
-document.getElementById('shopClose').addEventListener('click', closeShop);
-document.getElementById('laserBtn').addEventListener('click', useLaser);
+/* Init audio au premier geste utilisateur */
+let audioFirstGesture = false;
+function onFirstGesture(){
+  if (audioFirstGesture) return;
+  audioFirstGesture = true;
+  Audio.init();
+  Audio.resume();
+  if (!Audio.muted) Audio.playMusic();
+}
+document.addEventListener('pointerdown', onFirstGesture, { once: false });
+document.addEventListener('keydown', onFirstGesture, { once: false });
+
+/* Boutons */
+document.getElementById('startBtn').addEventListener('click', function(){ Audio.sfxClick(); startGame(); });
+document.getElementById('restartBtn').addEventListener('click', function(){ Audio.sfxClick(); startGame(); });
+document.getElementById('shopBtn').addEventListener('click', function(){ Audio.sfxClick(); openShop(); });
+document.getElementById('shopClose').addEventListener('click', function(){ Audio.sfxClick(); closeShop(); });
+document.getElementById('laserBtn').addEventListener('click', function(){ useLaser(); });
+
+muteBtn.addEventListener('click', function(){
+  Audio.init();
+  Audio.resume();
+  const newMuted = !Audio.muted;
+  Audio.setMuted(newMuted);
+  updateMuteBtn();
+  if (!newMuted){
+    // petit bip de feedback quand on réactive
+    Audio.sfxClick();
+  }
+});
+
+/* Bip de clic générique sur tous les boutons */
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  if (btn === muteBtn) return; // géré séparément
+  if (btn.id === 'startBtn' || btn.id === 'restartBtn' ||
+      btn.id === 'shopBtn'   || btn.id === 'shopClose' ||
+      btn.id === 'laserBtn') return; // déjà gérés
+  Audio.sfxClick();
+});
 
 document.addEventListener('visibilitychange', function(){
   if (!document.hidden) last = performance.now();
@@ -1355,9 +1651,9 @@ window.addEventListener('blur', function(){ last = performance.now(); });
 /* ============================================================
    INIT
    ============================================================ */
-buildShop();
 renderAchList();
 startBestEl.textContent = bestScore;
+updateMuteBtn();
 
 if (window.ResizeObserver){
   const ro = new ResizeObserver(function(){ resize(); });
@@ -1373,4 +1669,4 @@ requestAnimationFrame(loop);
 })();
 </script>
 </body>
-   </html>
+  </html>
