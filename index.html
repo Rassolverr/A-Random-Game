@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b0e14">
+<title>Studio Tycoon — Ultimate PWA</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Studio Tycoon">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Studio Tycoon">
+<meta name="description" content="Gérez votre studio de jeux vidéo de 1980 à aujourd'hui.">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='100'%20fill='%230b0e14'/%3E%3Cg%20transform='translate(256%20256)'%3E%3Crect%20x='-180'%20y='-80'%20width='360'%20height='200'%20rx='50'%20fill='%231d2431'%20stroke='%234ea1ff'%20stroke-width='10'/%3E%3Ccircle%20cx='-90'%20cy='20'%20r='26'%20fill='%234ea1ff'/%3E%3Ccircle%20cx='-40'%20cy='-20'%20r='26'%20fill='%237b3fe4'/%3E%3Ccircle%20cx='40'%20cy='30'%20r='26'%20fill='%23f0c040'/%3E%3Ccircle%20cx='90'%20cy='-20'%20r='26'%20fill='%233fb950'/%3E%3C/g%3E%3C/svg%3E">
+
+<style>
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  :root{
+    --bg:#0b0e14; --panel:#141a24; --panel2:#1d2431; --panel3:#252e3d;
+    --border:#2a3342; --text:#e6edf3; --muted:#8b98a9;
+    --accent:#4ea1ff; --green:#3fb950; --gold:#f0c040; --purple:#b57bff;
+    --red:#f85149; --orange:#ff8c42; --pink:#ff6bb3;
+  }
+  html,body{ height:100%; margin:0; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+    font-size:14px; display:flex; flex-direction:column;
+    height:100dvh; overflow:hidden; -webkit-font-smoothing:antialiased;
+  }
+
+  /* ===== TOP BAR ===== */
+  #topBar{
+    display:flex; align-items:stretch; gap:5px;
+    padding:6px; background:var(--panel);
+    border-bottom:1px solid var(--border); flex-shrink:0;
+    padding-top:calc(6px + env(safe-area-inset-top, 0px));
+  }
+  #stats{
+    flex:1; display:grid; grid-template-columns:repeat(5, minmax(0,1fr));
+    gap:5px; min-width:0;
+  }
+  .stat{
+    background:var(--panel2); border:1px solid var(--border);
+    border-radius:8px; padding:5px 2px; text-align:center; overflow:hidden;
+  }
+  .stat .lbl{
+    display:block; font-size:8.5px; letter-spacing:.05em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:1px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .stat .val{
+    display:block; font-size:clamp(10px,2.6vw,13px); font-weight:700;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  #sMoney{ color:var(--gold); } #sFans{ color:var(--green); }
+  #sRes{ color:var(--purple); } #sDate{ color:var(--accent); } #sTeam{ color:var(--purple); }
+
+  #btnSettings{
+    flex-shrink:0; padding:0 12px; min-height:auto;
+    background:var(--panel3); border:1px solid var(--border);
+    color:var(--text); border-radius:8px; font-size:16px;
+    cursor:pointer; transition:background .15s ease, transform .08s ease;
+  }
+  #btnSettings:hover{ background:#2f3a4d; }
+  #btnSettings:active{ transform:scale(.94); }
+
+  /* ===== TAB BAR ===== */
+  #tabBar{
+    display:flex; gap:4px; padding:5px;
+    background:var(--panel); border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .tab-btn{
+    flex:1; padding:9px 12px;
+    background:transparent; border:1px solid transparent;
+    color:var(--muted); font-family:inherit; font-size:12.5px; font-weight:700;
+    cursor:pointer; border-radius:8px;
+    transition:background .15s, color .15s, border-color .15s;
+    min-height:38px;
+  }
+  .tab-btn:hover:not(.active){ background:var(--panel2); color:var(--text); }
+  .tab-btn.active{
+    background:var(--panel2); color:var(--text);
+    border-color:var(--border);
+  }
+  .tab-btn .badge{
+    display:inline-block; margin-left:4px;
+    background:var(--pink); color:#fff;
+    padding:1px 5px; border-radius:8px; font-size:9px;
+    font-weight:700;
+  }
+
+  /* ===== BARRE PROJET ===== */
+  #projectBar{
+    display:none; padding:6px 10px; background:#12202f;
+    border-bottom:1px solid var(--border); font-size:11px;
+    color:#9fc4e8; flex-shrink:0; overflow:hidden;
+  }
+  #projectBar .pb-title{
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    margin-bottom:5px; font-size:11.5px;
+  }
+  #projectBar .pb-title b{ color:#d6ecff; }
+  #projectBar .pb-size{
+    display:inline-block; padding:1px 5px; border-radius:4px;
+    background:#1a3a5c; color:#9ecbff; font-weight:700; font-size:10px; margin:0 2px;
+  }
+  #projectBar .pb-size.aaa{ background:#4a2a0a; color:#ffb347; }
+  #projectBar .pb-size.aaaa{ background:#3a0a2a; color:#ff6bb3; }
+  #projectBar .pb-size.engine{ background:#0a3a1a; color:#7ee787; }
+  #projectBar .pb-row{ display:flex; align-items:center; gap:6px; font-size:10.5px; }
+  #projectBar .pb-track{
+    flex:1; height:8px; background:#0a141f; border-radius:4px;
+    overflow:hidden; border:1px solid #1a2a3a; min-width:40px;
+  }
+  #projectBar .pb-fill{
+    height:100%; background:linear-gradient(90deg, #4ea1ff, #7b3fe4);
+    transition:width .4s ease; border-radius:3px;
+  }
+  #projectBar .pb-fill.over{ background:linear-gradient(90deg, #ff8c42, #f85149); }
+  #projectBar .pb-fill.done{ background:linear-gradient(90deg, #3fb950, #238636); }
+  #projectBar .pb-pct{
+    font-weight:700; color:#d6ecff; min-width:34px; text-align:right; font-size:11px;
+  }
+  #projectBar .pb-info{ color:#8b98a9; white-space:nowrap; }
+  #projectBar.bug{ background:#2b1010; color:#f85149; border-bottom-color:#7a2222; }
+  #projectBar.bug .pb-fill{ background:linear-gradient(90deg, #f85149, #a02b2b); }
+
+  /* ===== TOAST ===== */
+  #toast{
+    position:fixed; top:100px; left:50%;
+    transform:translateX(-50%) translateY(-8px);
+    background:var(--panel3); border:1px solid var(--red); color:var(--red);
+    padding:9px 18px; border-radius:22px; font-size:12px; font-weight:700;
+    z-index:200; opacity:0; transition:opacity .3s ease, transform .3s ease;
+    pointer-events:none; box-shadow:0 8px 24px rgba(0,0,0,.5);
+    max-width:92vw; text-align:center; line-height:1.4;
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast.good{ border-color:var(--green); color:var(--green); }
+  #toast.warn{ border-color:var(--gold); color:var(--gold); }
+  #toast.info{ border-color:var(--accent); color:var(--accent); }
+
+  /* ===== JOURNAL ===== */
+  #journal{
+    flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+    padding:10px; display:flex; flex-direction:column; gap:8px;
+    scroll-behavior:smooth;
+  }
+  #journal::-webkit-scrollbar{ width:6px; }
+  #journal::-webkit-scrollbar-thumb{ background:#2a3342; border-radius:3px; }
+
+  .entry{
+    background:var(--panel); border-left:3px solid var(--border);
+    border-radius:8px; padding:9px 11px; line-height:1.5;
+    font-size:12.5px; white-space:pre-wrap; word-break:break-word;
+    animation:fadeIn .45s ease both;
+  }
+  @keyframes fadeIn{
+    from{ opacity:0; transform:translateY(7px); }
+    to{ opacity:1; transform:none; }
+  }
+  .entry.info{ border-left-color:var(--accent); }
+  .entry.good{ border-left-color:var(--green); }
+  .entry.bad{ border-left-color:var(--red); }
+  .entry.money{ border-left-color:var(--gold); }
+  .entry.game{ border-left-color:var(--purple); background:#1a1626; }
+  .entry.event{ border-left-color:var(--orange); background:#2a1c0e; }
+  .entry.rival{ border-left-color:var(--pink); background:#2a1020; }
+  .entry.expo{ border-left-color:var(--gold); background:#2a2208; }
+  .entry.sys{ border-left-color:#4a5568; color:var(--muted); font-style:italic; }
+  .entry .hl{ color:#fff; font-weight:700; }
+  .entry .g{ color:var(--green); } .entry .r{ color:var(--red); }
+  .entry .y{ color:var(--gold); } .entry .p{ color:var(--purple); }
+  .entry .b{ color:var(--accent); } .entry .o{ color:var(--orange); }
+  .entry .m{ color:var(--muted); } .entry .pk{ color:var(--pink); }
+  .entry .title{
+    display:block; font-size:13.5px; font-weight:700;
+    color:#e6edf3; margin-bottom:3px;
+  }
+  .entry .pb-size{
+    display:inline-block; padding:1px 5px; border-radius:4px;
+    background:#1a3a5c; color:#9ecbff; font-weight:700; font-size:10px; margin:0 2px;
+  }
+  .entry .pb-size.aaa{ background:#4a2a0a; color:#ffb347; }
+  .entry .pb-size.aaaa{ background:#3a0a2a; color:#ff6bb3; }
+
+  /* ===== VUE RIVAL ===== */
+  #rivalView{
+    flex:1; min-height:0; overflow-y:auto;
+    padding:14px; display:flex; flex-direction:column; gap:10px;
+    background:var(--bg);
+  }
+  #rivalView .rival-hero{
+    background:linear-gradient(135deg, #2a1020, #1a0a14);
+    border:1px solid #6b2050; border-radius:12px;
+    padding:18px 16px; text-align:center;
+  }
+  #rivalView .rival-hero .icon{ font-size:44px; display:block; margin-bottom:6px; }
+  #rivalView .rival-hero h2{
+    margin:0 0 4px; font-size:20px; color:var(--pink);
+    text-transform:uppercase; letter-spacing:.08em;
+  }
+  #rivalView .rival-hero .sub{
+    font-size:11px; color:#c47a9d;
+    text-transform:uppercase; letter-spacing:.06em;
+  }
+  #rivalView .rival-hero .status{
+    display:inline-block; margin-top:8px; padding:3px 10px;
+    background:var(--pink); color:#fff; border-radius:10px;
+    font-size:10px; font-weight:700; letter-spacing:.05em;
+  }
+  #rivalView .rival-hero .status.dead{ background:#444; color:#aaa; }
+
+  #rivalView .rival-stats{
+    display:grid; grid-template-columns:1fr 1fr; gap:8px;
+  }
+  #rivalView .rival-stat{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:9px; padding:12px 10px; text-align:center;
+  }
+  #rivalView .rival-stat .lbl{
+    font-size:9.5px; text-transform:uppercase; color:var(--muted);
+    letter-spacing:.06em; margin-bottom:4px;
+  }
+  #rivalView .rival-stat .val{
+    font-size:16px; font-weight:700; color:#fff;
+  }
+  #rivalView .rival-stat .val.pink{ color:var(--pink); }
+  #rivalView .rival-stat .val.green{ color:var(--green); }
+
+  #rivalView .rival-card{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:10px; padding:14px;
+  }
+  #rivalView .rival-card .card-title{
+    font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); margin-bottom:8px; font-weight:700;
+  }
+  #rivalView .rival-card .row{
+    display:flex; justify-content:space-between;
+    padding:7px 0; border-bottom:1px solid var(--border);
+    font-size:12px;
+  }
+  #rivalView .rival-card .row:last-child{ border-bottom:none; }
+  #rivalView .rival-card .row span{ color:var(--muted); }
+  #rivalView .rival-card .row b{ color:#fff; }
+  #rivalView .rival-card .row b.warn{ color:var(--red); }
+  #rivalView .rival-card .row b.pink{ color:var(--pink); }
+
+  #rivalView .btn-buyout{
+    width:100%; padding:14px; font-size:13.5px;
+    background:#3a1030; border:1px solid #c4246b;
+    color:#ff9bd0; font-weight:700; border-radius:10px;
+    cursor:pointer; transition:background .15s, transform .05s;
+    font-family:inherit;
+  }
+  #rivalView .btn-buyout:hover:not(:disabled){ background:#4d1440; }
+  #rivalView .btn-buyout:active:not(:disabled){ transform:scale(.98); }
+  #rivalView .btn-buyout:disabled{ opacity:.4; cursor:not-allowed; }
+
+  #rivalView .info-box{
+    background:var(--panel2); border:1px solid var(--border);
+    border-radius:9px; padding:12px 14px; font-size:11.5px;
+    color:var(--muted); line-height:1.55;
+  }
+  #rivalView .info-box b{ color:var(--text); }
+  #rivalView .info-box .warn{ color:var(--red); }
+
+  /* ===== ACTIONS ===== */
+  #actions{
+    display:grid; grid-template-columns:1fr 1fr; gap:7px; padding:9px;
+    padding-bottom:calc(9px + env(safe-area-inset-bottom, 0px));
+    background:var(--panel); border-top:1px solid var(--border);
+    flex-shrink:0; max-height:50dvh; overflow-y:auto;
+  }
+  button{
+    font-family:inherit; font-size:12.5px; font-weight:700;
+    padding:12px 8px; border-radius:10px; border:1px solid var(--border);
+    background:var(--panel2); color:var(--text); cursor:pointer;
+    transition:transform .08s ease, background .18s ease, opacity .18s ease, border-color .18s ease;
+    line-height:1.25; min-height:46px;
+  }
+  button:active:not(:disabled){ transform:scale(.965); }
+  button:disabled{ opacity:.32; cursor:not-allowed; }
+
+  .span2{ grid-column:span 2; }
+
+  .btn-primary{ background:#12314f; border-color:#1f6feb; color:#9ecbff; }
+  .btn-primary:not(:disabled):hover{ background:#17406b; }
+  .btn-green{ background:#12331d; border-color:#238636; color:#7ee787; }
+  .btn-green:not(:disabled):hover{ background:#17492a; }
+  .btn-gold{ background:#332708; border-color:#9e6a03; color:#f0c040; }
+  .btn-gold:not(:disabled):hover{ background:#4a3a0c; }
+  .btn-purple{ background:#251441; border-color:#7b3fe4; color:#c9a7ff; }
+  .btn-purple:not(:disabled):hover{ background:#33205a; }
+  .btn-orange{ background:#3a2208; border-color:#c45e00; color:#ff9d54; }
+  .btn-orange:not(:disabled):hover{ background:#4d2d0a; }
+  .btn-danger{ background:#3a1414; border-color:#a02b2b; color:#ff9b95; }
+  .btn-danger:not(:disabled):hover{ background:#4d1a1a; }
+  .btn-pink{ background:#3a1030; border-color:#c4246b; color:#ff9bd0; }
+  .btn-pink:not(:disabled):hover{ background:#4d1440; }
+
+  .hidden{ display:none !important; }
+
+  /* ===== MODALS ===== */
+  #modal, #settingsModal{
+    position:fixed; inset:0; background:rgba(0,0,0,.8);
+    backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+    display:none; align-items:center; justify-content:center;
+    padding:10px; z-index:100;
+  }
+  #modal.open, #settingsModal.open{ display:flex; }
+
+  .modal-box{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:16px; padding:14px; width:100%; max-width:520px;
+    max-height:94dvh; overflow-y:auto;
+    animation:pop .25s cubic-bezier(.2,.9,.3,1.2) both;
+    box-shadow:0 20px 60px rgba(0,0,0,.6);
+  }
+  @keyframes pop{
+    from{ opacity:0; transform:scale(.94) translateY(10px); }
+    to{ opacity:1; transform:none; }
+  }
+  .modal-box h2{ margin:0 0 4px; font-size:16px; color:#fff; }
+  .modal-sub{ margin:0 0 10px; font-size:11.5px; color:var(--muted); line-height:1.4; }
+
+  .lbl-section{
+    font-size:10px; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--muted); margin:12px 0 6px; font-weight:700;
+    display:flex; justify-content:space-between;
+  }
+  .lbl-section .cnt{
+    color:#4a5568; font-weight:400; letter-spacing:0; text-transform:none;
+  }
+
+  .name-row{ display:flex; gap:6px; margin-bottom:4px; }
+  .name-input{
+    flex:1; min-width:0;
+    background:var(--panel2); border:1px solid var(--border);
+    color:var(--text); padding:10px 12px; border-radius:9px;
+    font-family:inherit; font-size:13px; font-weight:600;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .name-input::placeholder{ color:#4a5568; font-weight:400; }
+  .name-input:focus{
+    outline:none; border-color:var(--accent);
+    box-shadow:0 0 0 2px rgba(78,161,255,.2);
+  }
+  .btn-name-gen{
+    padding:10px 14px; min-height:auto;
+    background:linear-gradient(135deg, #33270a, #4a3612);
+    border-color:#9e6a03; color:#f0c040;
+    font-size:18px; border-radius:9px; flex-shrink:0;
+    cursor:pointer;
+  }
+  .btn-name-gen:active{ transform:scale(.92); }
+
+  .options{ display:grid; gap:5px; margin-bottom:4px; }
+  .options.cols3{ grid-template-columns:repeat(3, 1fr); }
+  .options.cols2{ grid-template-columns:repeat(2, 1fr); }
+  .options.scrollable{
+    max-height:220px; overflow-y:auto;
+    align-content:start; padding-right:4px;
+  }
+  .options.scrollable::-webkit-scrollbar{ width:5px; }
+  .options.scrollable::-webkit-scrollbar-thumb{ background:#2a3342; border-radius:3px; }
+
+  .opt{
+    padding:8px 3px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel2); text-align:center; font-size:11px;
+    font-weight:700; color:#b9c4d2; cursor:pointer;
+    transition:all .15s ease; user-select:none; line-height:1.2;
+    min-height:36px; display:flex; align-items:center; justify-content:center;
+  }
+  .opt:active{ transform:scale(.97); }
+  .opt.selected{
+    border-color:var(--accent); background:#12314f; color:#9ecbff;
+    box-shadow:0 0 0 1px #1f6feb inset;
+  }
+  .opt.locked{ opacity:.28; cursor:not-allowed; font-size:10px; }
+
+  .opt-size{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:9px 12px; text-align:left; min-height:auto; gap:8px;
+  }
+  .opt-size > div:first-child{ flex:1; min-width:0; }
+  .opt-size .name{ font-weight:700; font-size:12.5px; margin-bottom:2px; }
+  .opt-size .meta{
+    font-size:10px; color:var(--muted); font-weight:400;
+    line-height:1.35; word-break:break-word;
+  }
+  .opt-size .cost{
+    font-size:11px; font-weight:700; color:#b9c4d2;
+    text-align:right; white-space:nowrap;
+  }
+  .opt-size.selected .meta{ color:#7db3e8; }
+  .opt-size.selected .cost{ color:#9ecbff; }
+  .opt-size.locked{ cursor:not-allowed; background:#181314; border-color:#3a2222; }
+  .opt-size.locked .name{ color:#c47a7a; }
+  .opt-size.locked .meta{ color:#e08f8f; }
+  .opt-size.locked .cost{ color:#6b3a3a; }
+  .opt-size.locked:active{ transform:none; }
+  .opt-size.bonus{ background:#0a2214; border-color:#238636; }
+  .opt-size.bonus .name{ color:#7ee787; }
+  .opt-size.bonus .meta{ color:#9ee5a5; }
+  .opt-size.penalty{ background:#2a1a0a; border-color:#c45e00; }
+  .opt-size.penalty .name{ color:#ff9d54; }
+
+  .modal-btns{
+    display:grid; grid-template-columns:1fr 1.5fr; gap:8px; margin-top:14px;
+    position:sticky; bottom:-14px; background:var(--panel);
+    padding-top:10px; padding-bottom:4px;
+  }
+
+  .settings-box{ max-width:440px; }
+  .settings-list{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+  .settings-list button{
+    width:100%; text-align:left; padding:14px 16px;
+    display:flex; align-items:center; gap:10px;
+    justify-content:flex-start; min-height:52px;
+  }
+  .settings-list button .icon{ font-size:18px; flex-shrink:0; }
+  .settings-list button .txt{ display:flex; flex-direction:column; gap:2px; }
+  .settings-list button .ttl{ font-weight:700; font-size:13px; }
+  .settings-list button .sub{ font-size:10.5px; color:var(--muted); font-weight:400; }
+
+  /* Responsive */
+  @media (min-width:620px){
+    body{ font-size:15px; }
+    .entry{ font-size:13.5px; }
+    button{ font-size:13.5px; }
+    .opt{ font-size:12px; padding:10px 4px; }
+    .stat .lbl{ font-size:9.5px; }
+    .stat .val{ font-size:14px; }
+    .tab-btn{ font-size:13.5px; }
+    #journal{ padding:14px; }
+    #rivalView{ padding:18px; }
+    #rivalView .rival-hero h2{ font-size:22px; }
+    #rivalView .rival-stat .val{ font-size:18px; }
+    #actions{ max-height:42dvh; }
+    .modal-box{ max-width:560px; }
+  }
+  @media (max-width:420px){
+    .stat .lbl{ font-size:7.5px; }
+    .stat .val{ font-size:10px; }
+    #btnSettings{ padding:0 9px; font-size:14px; }
+    button{ font-size:12px; padding:11px 6px; }
+    .tab-btn{ font-size:11.5px; padding:8px 8px; }
+    .opt{ font-size:10.5px; min-height:34px; padding:7px 2px; }
+    .opt-size{ padding:8px 10px; }
+    .opt-size .name{ font-size:11.5px; }
+    .opt-size .meta{ font-size:9px; }
+    .name-input{ font-size:12px; }
+  }
+  @media (max-width:340px){
+    .stat .lbl{ font-size:7px; }
+    .stat .val{ font-size:9px; }
+    .options.cols3{ grid-template-columns:repeat(2, 1fr); }
+    .opt{ font-size:10px; }
+  }
+  @media (min-width:1024px){
+    body{ font-size:15px; }
+    #journal{ max-width:920px; width:100%; margin:0 auto; padding:16px 20px; }
+    #rivalView{ max-width:920px; width:100%; margin:0 auto; }
+    #rivalView .rival-stats{ grid-template-columns:repeat(4, 1fr); }
+    #actions{
+      max-width:920px; width:100%; margin:0 auto;
+      grid-template-columns:repeat(4, 1fr); max-height:none;
+    }
+    #actions .span2{ grid-column:span 2; }
+    .modal-box{ max-width:600px; }
+    #stats{ max-width:920px; margin:0 auto; width:100%; }
+    #btnSettings{ margin-right:calc((100vw - 920px) / 2); }
+    #projectBar{ max-width:920px; margin:0 auto; width:100%; }
+    #tabBar{ max-width:920px; margin:0 auto; width:100%; padding:6px 0; background:transparent; border-bottom:1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<div id="topBar">
+  <header id="stats">
+    <div class="stat"><span class="lbl">Argent</span><span class="val" id="sMoney">0 $</span></div>
+    <div class="stat"><span class="lbl">Fans</span><span class="val" id="sFans">0</span></div>
+    <div class="stat"><span class="lbl">Rech.</span><span class="val" id="sRes">0</span></div>
+    <div class="stat"><span class="lbl">Date</span><span class="val" id="sDate">—</span></div>
+    <div class="stat"><span class="lbl">Équipe</span><span class="val" id="sTeam">0</span></div>
+  </header>
+  <button id="btnSettings" title="Réglages" aria-label="Ouvrir les réglages">⚙️</button>
+</div>
+
+<div id="tabBar">
+  <button id="tabGame" class="tab-btn active">🎮 Jeu</button>
+  <button id="tabRival" class="tab-btn">🏢 Studio Rival <span class="badge" id="rivalBadge" style="display:none">!</span></button>
+</div>
+
+<div id="projectBar"></div>
+<div id="toast"></div>
+
+<main id="journal"></main>
+
+<div id="rivalView" class="hidden">
+  <div class="rival-hero">
+    <span class="icon" id="rivalIcon">🏢</span>
+    <h2 id="rivalNameView">MegaSoft</h2>
+    <div class="sub">Studio concurrent</div>
+    <div class="status" id="rivalStatusView">● Actif</div>
+  </div>
+
+  <div class="rival-stats">
+    <div class="rival-stat">
+      <div class="lbl">Fans</div>
+      <div class="val pink" id="rivalFansView">0</div>
+    </div>
+    <div class="rival-stat">
+      <div class="lbl">Trésorerie</div>
+      <div class="val" id="rivalMoneyView">0 $</div>
+    </div>
+    <div class="rival-stat">
+      <div class="lbl">Jeux cette année</div>
+      <div class="val" id="rivalGamesView">0</div>
+    </div>
+    <div class="rival-stat">
+      <div class="lbl">Genres dominants</div>
+      <div class="val green" id="rivalGenresView">—</div>
+    </div>
+  </div>
+
+  <div class="rival-card">
+    <div class="card-title">📊 Rapport de concurrence</div>
+    <div class="row"><span>Année en cours</span><b id="rivalYearView">1980</b></div>
+    <div class="row"><span>Dernier jeu</span><b id="rivalLastGameView">—</b></div>
+    <div class="row"><span>Votre réputation</span><b id="rivalYourFansView">0 fans</b></div>
+    <div class="row"><span>Écart de fans</span><b id="rivalDiffView" class="pink">—</b></div>
+  </div>
+
+  <button id="btnBuyRivalView" class="btn-buyout">🏢 Racheter MegaSoft (5 000 000$)</button>
+
+  <div class="info-box">
+    <b>💡 Comment ça marche ?</b><br>
+    <b id="rivalNameInfo">MegaSoft</b> sort des jeux au fil du temps. Si vous sortez un jeu du <b>même genre que lui la même année</b>, votre note et vos ventes sont <span class="warn">lourdement pénalisées</span>. Surveillez ses sorties et évitez la concurrence directe !<br><br>
+    Vous pouvez aussi <b>racheter le studio</b> pour <b>5 000 000 $</b> si vous devenez assez riche : la concurrence disparaît définitivement.
+  </div>
+</div>
+
+<footer id="actions">
+  <button id="btnCreate" class="btn-primary span2">🎮 Créer un jeu</button>
+
+  <button id="btnWork" class="btn-green">🔨 1 mois</button>
+  <button id="btnSkip" class="btn-purple">⏩ Vers l'idéal</button>
+  <button id="btnRnd" class="btn-purple">🔬 R&amp;D</button>
+  <button id="btnRelease" class="btn-gold">🚀 Sortir</button>
+  <button id="btnCancel" class="btn-danger span2">✖ Annuler le projet</button>
+
+  <button id="btnExpo" class="btn-gold span2 hidden">🎪 Game Expo (20K$)</button>
+  <button id="btnPatch" class="btn-orange span2">🩹 Patcher</button>
+  <button id="btnDevelopEngine" class="btn-pink span2 hidden">🔧 Développer moteur maison (100K$)</button>
+
+  <button id="btnHire" class="btn-purple span2">👥 Recruter</button>
+  <button id="btnUpgrade" class="btn-primary">🏢 Studio</button>
+  <button id="btnMarketing" class="btn-purple">📣 Marketing</button>
+
+  <button id="btnSave" class="btn-green">💾 Sauver</button>
+  <button id="btnLoad" class="btn-gold">📂 Charger</button>
+
+  <button id="btnRestart" class="btn-primary span2 hidden">🔄 Nouvelle partie</button>
+</footer>
+
+<!-- MODAL CREATION -->
+<div id="modal">
+  <div class="modal-box">
+    <h2>🎮 Nouveau jeu</h2>
+    <p class="modal-sub">Choisissez l'envergure, puis le genre, le thème et la plateforme. Les grosses productions exigent un studio expérimenté ET une époque adaptée.</p>
+
+    <p class="lbl-section">Nom du jeu <span class="cnt" id="cntName">libre</span></p>
+    <div class="name-row">
+      <input type="text" id="inpName" class="name-input" placeholder="Ex: L'Épée du Destin" maxlength="40" autocomplete="off" spellcheck="false" enterkeyhint="done">
+      <button id="btnGenName" class="btn-name-gen" title="Générer un nom épique" aria-label="Générer un nom">🎲</button>
+    </div>
+
+    <div id="sequelWrap" class="hidden">
+      <p class="lbl-section">Suite <span class="cnt">+50% ventes · −20% coût</span></p>
+      <div class="options" id="optSequel"></div>
+    </div>
+
+    <p class="lbl-section">Moteur <span class="cnt" id="cntEngine"></span></p>
+    <div class="options cols2" id="optEngine"></div>
+
+    <p class="lbl-section">Envergure <span class="cnt" id="cntSize"></span></p>
+    <div class="options" id="optSize"></div>
+
+    <p class="lbl-section">Genre <span class="cnt" id="cntGenre"></span></p>
+    <div class="options cols3 scrollable" id="optGenre"></div>
+
+    <p class="lbl-section">Thème <span class="cnt" id="cntTheme"></span></p>
+    <div class="options cols3 scrollable" id="optTheme"></div>
+
+    <p class="lbl-section">Plateforme <span class="cnt" id="cntPlat"></span></p>
+    <div class="options cols2" id="optPlatform"></div>
+
+    <div class="modal-btns">
+      <button id="btnCancelCreate">Annuler</button>
+      <button id="btnStart" class="btn-green">Lancer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGLAGES -->
+<div id="settingsModal">
+  <div class="modal-box settings-box">
+    <h2>⚙️ Réglages</h2>
+    <p class="modal-sub">Gérez votre partie, sauvegardez, ou repartez de zéro.</p>
+
+    <div class="settings-list">
+      <button id="btnSettingsSave" class="btn-green">
+        <span class="icon">💾</span>
+        <span class="txt">
+          <span class="ttl">Sauvegarder la partie</span>
+          <span class="sub">Enregistre l'état actuel dans le navigateur</span>
+        </span>
+      </button>
+
+      <button id="btnSettingsLoad" class="btn-gold">
+        <span class="icon">📂</span>
+        <span class="txt">
+          <span class="ttl">Charger la partie</span>
+          <span class="sub">Restaure la dernière sauvegarde</span>
+        </span>
+      </button>
+
+      <button id="btnSettingsReset" class="btn-danger">
+        <span class="icon">🗑️</span>
+        <span class="txt">
+          <span class="ttl">Réinitialiser le jeu</span>
+          <span class="sub">Efface la sauvegarde et relance à zéro</span>
+        </span>
+      </button>
+
+      <button id="btnSettingsClose">
+        <span class="icon">✖</span>
+        <span class="txt">
+          <span class="ttl">Fermer</span>
+          <span class="sub">Retour au jeu</span>
+        </span>
+      </button>
+    </div>
+
+    <div class="settings-info" style="margin-top:12px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;font-size:11px;color:var(--muted);line-height:1.5;">
+      <b style="color:#b9c4d2">Version :</b> Ultimate v6 PWA<br>
+      <b style="color:#b9c4d2">Genres :</b> 35 · <b style="color:#b9c4d2">Thèmes :</b> 35<br>
+      <b style="color:#b9c4d2">Sauvegarde auto</b> au chargement de la page.
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   CONSTANTES
+   ========================================================= */
+const SAVE_KEY = 'studiotycoon_save_v6';
+const SAVE_VERSION = 6;
+const MAX_EMPLOYEES = 8;
+const EMP_SALARY = 1000;
+const HIRE_COST_BASE = 6000;
+const HIRE_COST_PER_EMP = 1500;
+
+const ERA_BASE_MONTHLY = { '80s': 800, '90s': 2000, '2000+': 4000 };
+
+const ENGINES = {
+  free:    { name:'Moteur Gratuit',  scoreBonus:-2, bugMult:1.0 },
+  inHouse: { name:'Moteur Maison',   scoreBonus:+3, bugMult:0.5 }
+};
+const INHOUSE_COST = 100000;
+const INHOUSE_MONTHS = 6;
+
+const SEQUEL_COST_MULT = 0.8;
+const SEQUEL_TIME_MULT = 0.8;
+const SEQUEL_REVENUE_MULT = 1.5;
+const SEQUEL_SCORE_BONUS = 0.3;
+
+const RIVAL_NAME = 'MegaSoft';
+const RIVAL_BUYOUT = 5000000;
+const RIVAL_INIT_MONEY = 300000;
+const RIVAL_INIT_FANS = 20000;
+
+const EXPO_COST = 20000;
+const EXPO_FANS_WIN = 50000;
+const EXPO_FANS_LOSS = 30000;
+const EXPO_MONTH = 5;
+
+const PLATFORM_META = {
+  pc80: { lifespan: 8, success: 1.0 }, c8: { lifespan: 5, success: 1.2 },
+  pc16: { lifespan: 6, success: 0.9 }, c16: { lifespan: 6, success: 1.3 },
+  portable: { lifespan: 7, success: 1.15 }, cd: { lifespan: 6, success: 1.0 },
+  c32: { lifespan: 5, success: 1.1 }, c64: { lifespan: 5, success: 1.2 },
+  c3d: { lifespan: 5, success: 1.15 }, pcm: { lifespan: 8, success: 1.0 },
+  chd: { lifespan: 6, success: 1.2 }, mobile: { lifespan: 10, success: 1.5 },
+  tablet: { lifespan: 6, success: 0.8 }, cnext: { lifespan: 7, success: 1.3 },
+  vr: { lifespan: 6, success: 0.75 }, cloud: { lifespan: 8, success: 0.9 }
+};
+
+const SIZES = {
+  'Indé': { costMult:1, startCost:2000, revenueMult:0.25, fansMult:0.3, scoreBonus:-0.3, bugMult:0.8, minStudioLevel:1, minYear:1980, idealMonths:{ '80s':1, '90s':3, '2000+':9 } },
+  'A':    { costMult:2, startCost:5000, revenueMult:1.0, fansMult:1.0, scoreBonus:0, bugMult:1.0, minStudioLevel:1, minYear:1980, idealMonths:{ '80s':3, '90s':8, '2000+':16 } },
+  'AA':   { costMult:4, startCost:15000, revenueMult:2.5, fansMult:1.5, scoreBonus:0.4, bugMult:1.3, minStudioLevel:2, minYear:1994, idealMonths:{ '80s':6, '90s':15, '2000+':26 } },
+  'AAA':  { costMult:8, startCost:40000, revenueMult:5.5, fansMult:2.5, scoreBonus:1.0, bugMult:1.8, minStudioLevel:3, minYear:2000, idealMonths:{ '80s':12, '90s':30, '2000+':42 } },
+  'AAAA': { costMult:16, startCost:100000, revenueMult:15, fansMult:4.0, scoreBonus:1.8, bugMult:2.5, minStudioLevel:4, minYear:2010, idealMonths:{ '80s':null, '90s':null, '2000+':78 } }
+};
+
+const GENRES = [
+  'RPG','Action','FPS','RTS','Simulation','Aventure','Plateforme',
+  'Rythme','Battle Royale','MMO','Visual Novel','Stratégie','Sport','Puzzle',
+  'Survie','Horreur','Gestion','Course','Combat','Infiltration','Sandbox',
+  'Roguelike','Metroidvania','MOBA','Gacha','Tower Defense','Party Game',
+  'Jeu de cartes','Jeu de société','Textuel','Musique','God Game',
+  'Hack & Slash','Beat\'em up','Shoot \'em up'
+];
+
+const THEMES = [
+  'Médiéval','Spatial','Cyberpunk','Post-Apo','Policier','Fantastique',
+  'Horreur','Sport','Cuisine','École','Pirate','Ninja','Guerre',
+  'Romantique','Zombie','Super-Héros','Steampunk','Préhistoire','Western',
+  'Mythologie','Espionnage','Militaire','Science-Fiction','Dystopie','Vie quotidienne',
+  'Histoire','Viking','Samouraï','Survie','Magie','Détective','Arts Martiaux',
+  'Nature','Rétro','Urbain'
+];
+
+const PLATFORMS = [
+  { id:'pc80',    name:'Ordinateur Personnel', year:1980, type:'PC',      power:0.90, market:1.00 },
+  { id:'c8',      name:'Console 8-bit',        year:1983, type:'CONSOLE', power:1.00, market:1.20 },
+  { id:'pc16',    name:'Ordinateur 16-bit',    year:1985, type:'PC',      power:1.10, market:1.10 },
+  { id:'c16',     name:'Console 16-bit',       year:1988, type:'CONSOLE', power:1.20, market:1.35 },
+  { id:'portable',name:'Console Portative',    year:1989, type:'CONSOLE', power:1.05, market:1.20 },
+  { id:'cd',      name:'CD-ROM PC',            year:1994, type:'PC',      power:1.30, market:1.25 },
+  { id:'c32',     name:'Console 32-bit',       year:1994, type:'CONSOLE', power:1.40, market:1.45 },
+  { id:'c64',     name:'Console 64-bit',       year:1996, type:'CONSOLE', power:1.50, market:1.50 },
+  { id:'c3d',     name:'Console 3D 128-bit',   year:1999, type:'CONSOLE', power:1.60, market:1.55 },
+  { id:'pcm',     name:'Ordinateur Moderne',   year:2000, type:'PC',      power:1.70, market:1.45 },
+  { id:'chd',     name:'Console HD',           year:2005, type:'CONSOLE', power:1.85, market:1.60 },
+  { id:'mobile',  name:'Mobile',               year:2007, type:'MOBILE',  power:1.20, market:1.90 },
+  { id:'tablet',  name:'Tablette',             year:2010, type:'MOBILE',  power:1.40, market:1.70 },
+  { id:'cnext',   name:'Console Next-Gen',     year:2013, type:'CONSOLE', power:2.00, market:1.65 },
+  { id:'vr',      name:'Réalité Virtuelle',    year:2016, type:'VR',      power:1.90, market:1.35 },
+  { id:'cloud',   name:'Cloud Gaming',         year:2019, type:'PC',      power:2.20, market:1.50 }
+];
+
+const GENRE_PREFS = {
+  'RPG':          { fav:['Médiéval','Fantastique','Post-Apo','Cyberpunk','Romantique'], bad:['Sport','Cuisine'], platFav:['PC','CONSOLE'], platBad:['MOBILE','VR'] },
+  'Action':       { fav:['Guerre','Zombie','Policier','Super-Héros','Ninja','Pirate'], bad:['Cuisine','École','Romantique'], platFav:['CONSOLE','PC'], platBad:['MOBILE'] },
+  'FPS':          { fav:['Guerre','Zombie','Policier','Post-Apo','Cyberpunk','Spatial'], bad:['Cuisine','École','Romantique','Sport'], platFav:['PC','CONSOLE'], platBad:['MOBILE','VR'] },
+  'RTS':          { fav:['Guerre','Médiéval','Spatial','Fantastique'], bad:['Cuisine','Horreur','Romantique'], platFav:['PC'], platBad:['MOBILE','CONSOLE'] },
+  'Simulation':   { fav:['Cuisine','Sport','École','Policier'], bad:['Guerre','Zombie','Horreur'], platFav:['PC','MOBILE'], platBad:['VR'] },
+  'Aventure':     { fav:['Médiéval','Fantastique','Pirate','Policier','Romantique'], bad:['Guerre','Sport'], platFav:['CONSOLE','PC','MOBILE'], platBad:[] },
+  'Plateforme':   { fav:['Fantastique','Médiéval','Ninja','Super-Héros'], bad:['Guerre','Policier','Romantique'], platFav:['CONSOLE','MOBILE'], platBad:['PC'] },
+  'Rythme':       { fav:['Sport','École','Cyberpunk'], bad:['Guerre','Post-Apo','Médiéval'], platFav:['MOBILE','CONSOLE'], platBad:['PC'] },
+  'Battle Royale':{ fav:['Post-Apo','Guerre','Zombie','Cyberpunk'], bad:['Cuisine','Romantique','École'], platFav:['PC','CONSOLE','MOBILE'], platBad:[] },
+  'MMO':          { fav:['Médiéval','Fantastique','Spatial','Cyberpunk'], bad:['Cuisine','École'], platFav:['PC'], platBad:['MOBILE','CONSOLE'] },
+  'Visual Novel': { fav:['Romantique','École','Policier','Horreur'], bad:['Guerre','Sport','Zombie'], platFav:['PC','MOBILE'], platBad:['VR'] },
+  'Stratégie':    { fav:['Médiéval','Guerre','Spatial','Post-Apo'], bad:['Cuisine','Sport','Romantique'], platFav:['PC'], platBad:['MOBILE'] },
+  'Sport':        { fav:['Sport'], bad:['Médiéval','Fantastique','Horreur','Cuisine'], platFav:['CONSOLE','PC'], platBad:['VR'] },
+  'Puzzle':       { fav:['École','Cuisine','Fantastique'], bad:['Guerre','Post-Apo','Zombie'], platFav:['MOBILE','PC'], platBad:['CONSOLE'] },
+  'Survie':       { fav:['Post-Apo','Zombie','Survie','Nature','Préhistoire','Dystopie'], bad:['Cuisine','Romantique','École','Vie quotidienne'], platFav:['PC','CONSOLE'], platBad:['MOBILE','VR'] },
+  'Horreur':      { fav:['Horreur','Zombie','Dystopie','Mythologie','Espionnage'], bad:['Sport','Cuisine','Romantique','Party Game'], platFav:['PC','CONSOLE','VR'], platBad:['MOBILE'] },
+  'Gestion':      { fav:['Vie quotidienne','Histoire','Cuisine','Nature','Urbain','Steampunk'], bad:['Guerre','Zombie','Combat','Horreur'], platFav:['PC','MOBILE'], platBad:['CONSOLE','VR'] },
+  'Course':       { fav:['Sport','Rétro','Urbain','Nature'], bad:['Médiéval','Fantastique','Horreur','Cuisine'], platFav:['CONSOLE','PC'], platBad:['MOBILE','VR'] },
+  'Combat':       { fav:['Arts Martiaux','Militaire','Guerre','Samouraï','Ninja'], bad:['Cuisine','École','Romantique','Vie quotidienne'], platFav:['CONSOLE','PC'], platBad:['MOBILE'] },
+  'Infiltration': { fav:['Espionnage','Policier','Militaire','Cyberpunk','Détective'], bad:['Sport','Cuisine','Party Game','Course'], platFav:['PC','CONSOLE'], platBad:['MOBILE','VR'] },
+  'Sandbox':      { fav:['Vie quotidienne','Nature','Urbain','Rétro','Science-Fiction'], bad:['Guerre','Horreur'], platFav:['PC','CONSOLE','MOBILE'], platBad:[] },
+  'Roguelike':    { fav:['Fantastique','Médiéval','Mythologie','Dystopie','Magie'], bad:['Vie quotidienne','Cuisine','Sport'], platFav:['PC','MOBILE'], platBad:['CONSOLE','VR'] },
+  'Metroidvania': { fav:['Fantastique','Cyberpunk','Spatial','Science-Fiction','Mythologie'], bad:['Cuisine','École','Sport'], platFav:['CONSOLE','PC','MOBILE'], platBad:['VR'] },
+  'MOBA':         { fav:['Fantastique','Magie','Guerre','Mythologie'], bad:['Cuisine','Romantique','Vie quotidienne'], platFav:['PC','MOBILE'], platBad:['CONSOLE','VR'] },
+  'Gacha':        { fav:['Fantastique','Mythologie','Magie','Ninja'], bad:['Histoire','Militaire','Guerre'], platFav:['MOBILE','PC'], platBad:['CONSOLE','VR'] },
+  'Tower Defense':{ fav:['Médiéval','Fantastique','Guerre','Spatial','Militaire'], bad:['Cuisine','Romantique','Vie quotidienne'], platFav:['MOBILE','PC'], platBad:['CONSOLE','VR'] },
+  'Party Game':   { fav:['Vie quotidienne','Rétro','Cuisine','École'], bad:['Horreur','Guerre','Dystopie','Post-Apo'], platFav:['CONSOLE','MOBILE'], platBad:['PC','VR'] },
+  'Jeu de cartes':{ fav:['Fantastique','Médiéval','Magie','Mythologie'], bad:['Guerre','Combat','Course'], platFav:['PC','MOBILE'], platBad:['CONSOLE','VR'] },
+  'Jeu de société':{fav:['Vie quotidienne','Rétro','Histoire','Nature'], bad:['Zombie','Horreur','Post-Apo','Combat'], platFav:['MOBILE','PC','CONSOLE'], platBad:[] },
+  'Textuel':      { fav:['Espionnage','Détective','Histoire','Vie quotidienne','Romantique'], bad:['Combat','Course','Action'], platFav:['PC','MOBILE'], platBad:['CONSOLE','VR'] },
+  'Musique':      { fav:['Rétro','Urbain','Vie quotidienne','Party Game'], bad:['Guerre','Horreur','Post-Apo','Militaire'], platFav:['MOBILE','CONSOLE'], platBad:['PC','VR'] },
+  'God Game':     { fav:['Mythologie','Nature','Fantastique','Préhistoire','Histoire'], bad:['Cyberpunk','Urbain','Militaire','Course'], platFav:['PC'], platBad:['MOBILE','VR'] },
+  'Hack & Slash': { fav:['Médiéval','Fantastique','Mythologie','Guerre','Samouraï'], bad:['Cuisine','École','Vie quotidienne'], platFav:['CONSOLE','PC'], platBad:['MOBILE'] },
+  'Beat\'em up':  { fav:['Urbain','Rétro','Arts Martiaux','Ninja','Dystopie'], bad:['Cuisine','Romantique','Nature'], platFav:['CONSOLE','PC'], platBad:['MOBILE'] },
+  'Shoot \'em up':{ fav:['Spatial','Guerre','Militaire','Science-Fiction','Rétro'], bad:['Cuisine','Romantique','Vie quotidienne'], platFav:['CONSOLE','PC'], platBad:['MOBILE','VR'] }
+};
+
+const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const FLAVOR = ["Level design peaufiné.","Debug des collisions.","Nouveau style visuel.","Tutoriel réécrit.","Bugs corrigés.","Musique ajoutée.","Le moteur rame.","Stats équilibrées.","Build cassée, réparée.","Code optimisé.","Motion capture.","Boss final ajouté.","QA multijoueur.","Docs techniques.","Nouvelle interface."];
+
+const NAME_NOUNS_FR = {
+  'Médiéval':['Royaume','Épée','Donjon','Dragon','Roi','Chevalier','Château','Couronne','Lame','Trône','Sorcier','Légende','Prophétie','Forteresse','Bannière','Cristal','Seigneur','Trésor','Tour','Ordre'],
+  'Spatial':['Galaxie','Étoile','Vaisseau','Nébuleuse','Mars','Orbite','Nova','Cosmos','Astre','Station','Colonie','Hyperespace','Noyau','Cockpit','Satellite','Sonde','Comète','Éclipse','Horizon'],
+  'Cyberpunk':['Néon','Chrome','Hacker','Implant','Nexus','Protocole','Data','Cité','Réseau','Circuit','Mainframe','Netrunner','Ghost','Grille','Corpo','Byte','Signal','Ombre'],
+  'Post-Apo':['Ruines','Cendres','Survivant','Wasteland','Abri','Désolation','Zone','Dôme','Rad','Décrépit','Bunker','Contamination','Décombres','Silence','Friche'],
+  'Policier':['Enquête','Affaire','Détective','Brigade','Mystère','Precinct','Alibi','Dossier','Suspect','Preuve','Traque','Commissariat','Filature','Indice','Témoin'],
+  'Fantastique':['Mana','Dragon','Arcanes','Royaume','Cristal','Rune','Prophétie','Magie','Sorcier','Élixir','Grimoire','Portail','Fée','Trésor','Bâton','Sortilège'],
+  'Horreur':['Cauchemar','Ténèbres','Abysses','Sanctuaire','Malédiction','Spectre','Rituel','Nuit','Ombre','Sang','Cimetière','Égarement','Soupir','Crypte','Appel'],
+  'Sport':['Champion','Ligue','Stade','Victoire','Tournoi','Athlète','Record','Podium','Équipe','Match','Finale','Trophée','Pelouse','Maillot','Arbitre'],
+  'Cuisine':['Chef','Recette','Fourneau','Saveur','Menu','Gourmet','Épice','Banquet','Festin','Marmite','Pâtisserie','Casserole','Assiette','Dégustation','Toque'],
+  'École':['Campus','Classe','Étudiant','Lycée','Examen','Académie','Récréation','Amphi','Études','Cours','Diplôme','Bibliothèque','Tableau','Cloche','Uniforme'],
+  'Pirate':['Trésor','Corsaire','Galleon','Butin','Capitaine','Île','Boussole','Mer','Pavillon','Radeau','Mât','Kraken','Crique','Perroquet','Sabre'],
+  'Ninja':['Ombre','Sabre','Clan','Shinobi','Lame','Vent','Sceau','Dojo','Kunai','Voile','Sensei','Parchemin','Silence','Toit','Éclair'],
+  'Guerre':['Front','Bataillon','Assaut','Tranchée','Victoire','Offensive','Conflit','Bataille','Ligne','Artillerie','Sniper','Tank','Escouade','Grenade','Médaille'],
+  'Romantique':['Cœur','Saison','Promesse','Rencontre','Émoi','Souvenir','Printemps','Baiser','Amour','Serment','Regard','Étreinte','Lettre','Aube','Absence'],
+  'Zombie':['Horde','Contagion','Survie','Épidémie','Mort','Refuge','Évacuation','Virus','Peste','Cimetière','Cerveau','Morsure','Ruine','Panique','Sang'],
+  'Super-Héros':['Héros','Justicier','Masque','Pouvoir','Légende','Titan','Aube','Cape','Symbole','Protecteur','Éclair','Sentinelle','Justice','Serment','Costume'],
+  'Steampunk':['Vapeur','Engrenage','Cuivre','Mécanique','Dirigeable','Automate','Charbon','Invention','Aether','Boussole','Horloge','Piston','Manomètre','Zeppelin','Chaudière'],
+  'Préhistoire':['Caverne','Mammouth','Silex','Tribu','Feu','Chasse','Totem','Dinosaure','Bison','Rite','Os','Peinture','Grotte','Sagaie','Horde'],
+  'Western':['Far West','Cowboy','Sherif','Colt','Désert','Saloon','Cheval','Frontière','Bison','Tornade','Diligence','Éperon','Tumbleweed','Cactus','Bandit'],
+  'Mythologie':['Olympe','Titan','Héros','Oracle','Mythe','Prophétie','Foudre','Sanctuaire','Destin','Légende','Pan','Nymphe','Temple','Épée','Lyre'],
+  'Espionnage':['Agent','Mission','Ombre','Code','Conspiration','Microfilm','Silence','Traque','Réseau','Espion','Dossier','Mallette','Passeport','Poison','Enquête'],
+  'Militaire':['Front','Troupes','Sergent','Mitrailleuse','Offensive','Bunker','Bataillon','Missile','Tactique','Garnison','Tranchée','Colonel','Ordre','Déploiement','Extraction'],
+  'Science-Fiction':['Étoile','Vaisseau','Robot','Futur','Galaxie','Colonie','IA','Nano','Horizon','Sonar','Androïde','Fusion','Réacteur','Hyperdrive','Codex'],
+  'Dystopie':['Régime','Révolte','Résistance','Ruine','Surveillance','Caste','Mur','Chaos','Aube','Silence','Cendre','Partition','Caméra','Ordre','Dissidence'],
+  'Vie quotidienne':['Maison','Café','Ville','Quotidien','Voisins','Famille','Rue','Marché','Vie','Souvenir','Cuisine','Salon','Jardin','Balcon','Routine'],
+  'Histoire':['Empire','Révolution','Couronne','Bataille','Renaissance','Civilisation','Traité','Époque','Mémoire','Siècle','Pharaon','César','Croisade','Roi','République'],
+  'Viking':['Draupnir','Rune','Fjord','Lame','Bateau','Thor','Odin','Valhalla','Berserker','Saga','Bouclier','Longship','Jarl','Mead','Ragnar'],
+  'Samouraï':['Sabre','Bushido','Dojo','Honneur','Ronin','Katana','Shogun','Sensei','Vent','Soie','Cerisier','Éventail','Armure','Seppuku','Kitsune'],
+  'Survie':['Instinct','Ressource','Abri','Frontière','Sauvage','Nuit','Chasse','Camp','Faim','Ombre','Feu','Rivière','Piège','Cri','Trace'],
+  'Magie':['Sort','Arcanes','Rune','Cristal','Grimoire','Enchantement','Mana','Sorcellerie','Alchimie','Potion','Baguette','Cercle','Rituel','Charme','Prophétie'],
+  'Détective':['Indice','Enquête','Coupable','Mystère','Preuve','Suspect','Crime','Filature','Témoin','Couloir','Fumée','Loupe','Carnet','Alibi','Révolver'],
+  'Arts Martiaux':['Poing','Dojo','Sensei','Ki','Ceinture','Combat','Lame','Vent','Tigre','Grue','Mante','Serpent','Dragon','Temple','Respiration'],
+  'Nature':['Forêt','Rivière','Montagne','Océan','Saison','Faune','Fleur','Brume','Aube','Écorce','Lac','Vallée','Ruche','Mousse','Aurore'],
+  'Rétro':['Arcade','Pixel','Borne','Cassette','Néon','Cartouche','Flipper','Manette','Vinyle','Cathodique','Joystick','Score','Combos','Attract','Highscore'],
+  'Urbain':['Béton','Rue','Cité','Métro','Néon','Gratte-ciel','Bitume','Carrefour','Square','Tunnel','Graf','Police','Taxi','Néons','Tag']
+};
+const NAME_NOUNS_EN = {
+  'Médiéval':['Knight','Sword','Castle','Throne','Crown','Dragon','King','Realm','Blade','Dungeon','Legend','Fortress','Banner','Order','Siege'],
+  'Spatial':['Star','Nova','Galaxy','Cosmos','Orbit','Nebula','Void','Astral','Ship','Station','Comet','Rift','Eclipse','Horizon','Nexus'],
+  'Cyberpunk':['Neon','Chrome','Hacker','Implant','Nexus','Protocol','Data','Netrunner','Grid','Ghost','Corp','Byte','Signal','Shadow','Wire'],
+  'Post-Apo':['Ruins','Ashes','Survivor','Wasteland','Shelter','Zone','Bunker','Fallout','Dust','Silence','Rust','Ruin'],
+  'Policier':['Case','Detective','Precinct','Mystery','Alibi','File','Badge','Manhunt','Trap','Trace','Witness'],
+  'Fantastique':['Mana','Dragon','Arcane','Crystal','Rune','Prophecy','Magic','Grimoire','Spell','Portal','Fable'],
+  'Horreur':['Nightmare','Darkness','Abyss','Specter','Curse','Ritual','Night','Shadow','Crypt','Scream','Void'],
+  'Sport':['Champion','League','Stadium','Victory','Athlete','Record','Final','Match','Team','Goal'],
+  'Cuisine':['Chef','Recipe','Feast','Gourmet','Flavor','Kitchen','Banquet','Spice'],
+  'École':['Campus','Class','Student','Exam','Academy','Recess','Bell','Study'],
+  'Pirate':['Treasure','Corsair','Galleon','Plunder','Captain','Isle','Kraken','Sea','Flag','Blade'],
+  'Ninja':['Shadow','Blade','Clan','Shinobi','Wind','Seal','Scroll','Silence','Storm'],
+  'Guerre':['Front','Battalion','Assault','Trench','Victory','Offensive','War','Strike','Squad','Honor'],
+  'Romantique':['Heart','Season','Promise','Encounter','Memory','Spring','Love','Letter','Dawn','Dream'],
+  'Zombie':['Horde','Contagion','Survival','Outbreak','Dead','Refuge','Plague','Bite','Panic','Blood'],
+  'Super-Héros':['Hero','Justice','Mask','Power','Legend','Titan','Dawn','Cape','Symbol','Guardian','Strike'],
+  'Steampunk':['Steam','Gear','Copper','Machine','Airship','Automaton','Brass','Invention','Aether','Compass'],
+  'Préhistoire':['Cave','Mammoth','Flint','Tribe','Fire','Hunt','Totem','Dinosaur','Bison','Rite'],
+  'Western':['West','Cowboy','Sheriff','Colt','Desert','Saloon','Horse','Frontier','Bison','Tornado'],
+  'Mythologie':['Olympus','Titan','Hero','Oracle','Myth','Prophecy','Thunder','Sanctuary','Fate','Legend'],
+  'Espionnage':['Agent','Mission','Shadow','Code','Conspiracy','Silence','Trace','Network','Spy','Cipher'],
+  'Militaire':['Front','Troops','Sergeant','Machine-Gun','Offensive','Bunker','Battalion','Missile','Tactic','Garrison'],
+  'Science-Fiction':['Star','Ship','Robot','Future','Galaxy','Colony','AI','Nano','Horizon','Sonar'],
+  'Dystopie':['Regime','Revolt','Resistance','Ruin','Watch','Caste','Wall','Chaos','Dawn','Silence'],
+  'Vie quotidienne':['Home','Cafe','Town','Daily','Neighbors','Family','Street','Market','Life','Memory'],
+  'Histoire':['Empire','Revolution','Crown','Battle','Renaissance','Civilization','Treaty','Era','Memory','Century'],
+  'Viking':['Rune','Fjord','Blade','Boat','Thor','Odin','Valhalla','Berserker','Saga','Shield'],
+  'Samouraï':['Saber','Bushido','Dojo','Honor','Ronin','Katana','Shogun','Sensei','Wind','Silk'],
+  'Survie':['Instinct','Resource','Shelter','Frontier','Wild','Night','Hunt','Camp','Hunger','Shadow'],
+  'Magie':['Spell','Arcane','Rune','Crystal','Grimoire','Enchant','Mana','Sorcery','Alchemy','Potion'],
+  'Détective':['Clue','Case','Culprit','Mystery','Proof','Suspect','Crime','Trace','Witness','Corridor'],
+  'Arts Martiaux':['Fist','Dojo','Sensei','Ki','Belt','Combat','Blade','Wind','Tiger','Crane'],
+  'Nature':['Forest','River','Mountain','Ocean','Season','Fauna','Flower','Mist','Dawn','Bark'],
+  'Rétro':['Arcade','Pixel','Cabinet','Cassette','Neon','Cartridge','Pinball','Pad','Vinyl','Cathode'],
+  'Urbain':['Concrete','Street','City','Subway','Neon','Skyscraper','Asphalt','Crossroad','Square','Tunnel']
+};
+const GENRE_WORDS_FR = {
+  'RPG':['Chronique','Légende','Destinée','Quête','Saga','Mythe','Épopée','Conte','Aventure','Héritage','Prophétie'],
+  'Action':['Assaut','Fureur','Tempête','Colère','Offensive','Charge','Rafale','Tonnerre','Fracas','Furie'],
+  'FPS':['Strike','Assault','Combat','Sniper','Frontline','Ops','Firefight','Warfare','Blitz','Raid','Fury'],
+  'RTS':['Commandement','Empire','Conquête','Tactique','Siège','Stratégie','Domination','Front'],
+  'Simulation':['Simulateur','Gestion','Monde','Vie','Empire','Univers','Horizon'],
+  'Aventure':['Voyage','Expédition','Odyssée','Périple','Quête','Pèlerinage','Traversée','Errance'],
+  'Plateforme':['Bond','Grimpe','Course','Saut','Ascension','Élan','Vertige'],
+  'Rythme':['Beat','Symphonie','Mélodie','Danse','Tempo','Harmonie','Sonate','Rythme'],
+  'Battle Royale':['Survival','Last','Zone','Drop','Hunt','War','Royale','Arena','Final'],
+  'MMO':['Monde','Univers','Royaume','Légende','Chronique','Épopée','Alliance'],
+  'Visual Novel':['Histoire','Romance','Récit','Conte','Souvenirs','Journal','Lettre','Saison'],
+  'Stratégie':['Stratégie','Empire','Conquête','Domination','Tactique','Calcul','Front'],
+  'Sport':['Championnat','Ligue','Tournoi','Coupe','Match','Stade','Finale','Saison'],
+  'Puzzle':['Énigme','Puzzle','Labyrinthe','Mystère','Casse-tête','Équation','Défi'],
+  'Survie':['Survie','Instinct','Ressources','Abri','Survivant','Frontière'],
+  'Horreur':['Horreur','Épouvante','Terreur','Cauchemar','Angoisse','Frisson'],
+  'Gestion':['Empire','Gestion','Royaume','Économie','Ville','Ressources'],
+  'Course':['Course','Vitesse','Circuit','Rallye','Ligne','Turbo'],
+  'Combat':['Combat','Duel','Arène','Tournoi','Baston','Affrontement'],
+  'Infiltration':['Infiltration','Ombre','Silence','Mission','Espion','Fantôme'],
+  'Sandbox':['Bac à sable','Liberté','Monde','Création','Univers','Exploration'],
+  'Roguelike':['Donjon','Mortalité','Boucle','Maudit','Labyrinthe','Cycle'],
+  'Metroidvania':['Forteresse','Château','Exploration','Carte','Ruines','Dédale'],
+  'MOBA':['Arène','Ligue','Héros','Bataille','Lane','Confrontation'],
+  'Gacha':['Gacha','Collection','Héros','Invocation','Portail','Destinée'],
+  'Tower Defense':['Défense','Tour','Vague','Rempart','Bastion','Siège'],
+  'Party Game':['Fête','Party','Mini-jeu','Amusement','Rassemblement','Défi'],
+  'Jeu de cartes':['Cartes','Deck','Main','Atout','Séquence','Mélange'],
+  'Jeu de société':['Plateau','Pion','Dés','Table','Lancement','Manche'],
+  'Textuel':['Récit','Aventure','Livre','Chapitre','Histoire','Texte'],
+  'Musique':['Mélodie','Rythme','Beat','Symphonie','Note','Harmonie'],
+  'God Game':['Dieu','Création','Culte','Fidèle','Univers','Genèse'],
+  'Hack & Slash':['Lame','Massacre','Épée','Fureur','Assaut','Carnage'],
+  'Beat\'em up':['Rue','Baston','Poing','Bagarre','Rage','Défi'],
+  'Shoot \'em up':['Tir','Escadrille','Missile','Rafale','Salve','Vaisseau']
+};
+const ADJS_FR = ['Sombre','Légendaire','Funeste','Mystique','Épique','Céleste','Sauvage','Sublime','Sinistre','Immense','Terrestre','Rapide','Fragile','Invisible','Invincible','Ultime','Suprême','Tragique','Magnifique','Féroce','Paisible','Impossible','Inviolable','Terrible','Formidable','Remarquable','Fantastique','Inoubliable','Inévitable','Titanesque','Colossal','Furieux','Épouvantable'];
+const ADJS_EN = ['Dark','Lost','Ancient','Eternal','Cursed','Sacred','Royal','Galactic','Stellar','Cosmic','Orbital','Celestial','Virtual','Digital','Quantum','Cyber','Neon','Frozen','Burning','Endless','Final','Hidden','Forbidden','Infinite','Broken','Silent','Wild','Savage','Divine','Iron','Crimson'];
+
+/* =========================================================
+   ÉTAT
+   ========================================================= */
+let STATE;
+let currentTab = 'game';
+let selection = { size:'A', genre:'RPG', theme:'Médiéval', platformId:'pc80', name:'', nameEdited:false, engine:'free', sequelIdx:-1 };
+let toastTimer = null;
+const $ = id => document.getElementById(id);
+const journalEl = $('journal');
+
+const fmt = n => Math.round(n).toLocaleString('fr-FR');
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const getEra = y => y < 1990 ? '80s' : (y < 2000 ? '90s' : '2000+');
+const eraLabel = e => e === '80s' ? 'Années 1980' : (e === '90s' ? 'Années 1990' : 'Années 2000+');
+
+function generateEpicName(genre, theme){
+  const isEnglish = genre === 'FPS' || genre === 'Battle Royale';
+  if(isEnglish){
+    const n = NAME_NOUNS_EN[theme] || NAME_NOUNS_EN['Spatial'];
+    const w = GENRE_WORDS_FR[genre] || ['Strike','Assault','Warfare'];
+    const a = ADJS_EN;
+    const p = [() => pick(n)+' '+pick(w), () => pick(a)+' '+pick(n), () => pick(n)+' '+pick(n), () => pick(a)+' '+pick(w), () => pick(a)+' '+pick(n)+' '+pick(w)];
+    return pick(p)();
+  } else {
+    const n = NAME_NOUNS_FR[theme] || ['Monde'];
+    const w = GENRE_WORDS_FR[genre] || ['Aventure'];
+    const a = ADJS_FR;
+    const p = [() => pick(n)+' '+pick(a), () => pick(a)+' '+pick(n), () => pick(n)+' & '+pick(n), () => pick(w)+' : '+pick(n), () => pick(w)+' '+pick(a)];
+    return pick(p)();
+  }
+}
+
+function log(html, type='info'){
+  const d = document.createElement('div');
+  d.className = 'entry ' + type;
+  d.innerHTML = html;
+  journalEl.appendChild(d);
+  journalEl.scrollTop = journalEl.scrollHeight;
+  while(journalEl.children.length > 200) journalEl.removeChild(journalEl.firstChild);
+}
+function notify(msg, type='warn'){
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 3600);
+}
+function advanceMonth(){
+  STATE.month++;
+  if(STATE.month > 11){ STATE.month = 0; STATE.year++; STATE.rivalGamesThisYear = []; }
+  if(!STATE.rival.bought && Math.random() < 0.08) generateRivalGame();
+  if(STATE.month === EXPO_MONTH && STATE.lastExpoYear < STATE.year && STATE.project){
+    notify("🎪 Le Game Expo est ouvert ce mois-ci !", 'info');
+  }
+}
+
+function getUnlockedPlatforms(){ return PLATFORMS.filter(p => p.year <= STATE.year); }
+function getPlatformById(id){ return PLATFORMS.find(p => p.id === id); }
+function platformMarket(p){ return p.market * ((STATE.platformMods && STATE.platformMods[p.id]) || 1); }
+function themeAffinity(g, t){ const p = GENRE_PREFS[g]; if(!p) return 0.5; return p.fav.includes(t) ? 1.0 : (p.bad.includes(t) ? 0.15 : 0.55); }
+function platAffinity(g, pt){ const p = GENRE_PREFS[g]; if(!p) return 0.55; return p.platFav.includes(pt) ? 1.0 : (p.platBad.includes(pt) ? 0.25 : 0.6); }
+
+function platformStatus(platform){
+  const meta = PLATFORM_META[platform.id] || { lifespan: 6, success: 1.0 };
+  const age = STATE.year - platform.year, life = meta.lifespan;
+  let mod = meta.success, warnings = [];
+  if(meta.success < 0.7){ mod *= 0.33; warnings.push("bide commercial"); }
+  if(age > life){ mod *= 0.33; warnings.push("fin de vie"); }
+  else if(age > life * 0.8){ mod *= 0.55; warnings.push("plateforme vieillissante"); }
+  return { mod, warnings };
+}
+
+function sizeAvailable(sk){
+  const s = SIZES[sk];
+  if(!s) return { ok:false };
+  return {
+    ok: STATE.studioLevel >= s.minStudioLevel && STATE.year >= s.minYear && s.idealMonths[getEra(STATE.year)] !== null,
+    levelOk: STATE.studioLevel >= s.minStudioLevel,
+    yearOk: STATE.year >= s.minYear
+  };
+}
+
+function monthlyCost(){
+  const era = STATE.project ? STATE.project.era : getEra(STATE.year);
+  const base = ERA_BASE_MONTHLY[era];
+  const sm = STATE.project ? SIZES[STATE.project.size].costMult : 1;
+  return Math.round(base * sm + STATE.employees * EMP_SALARY);
+}
+const UPGRADE_REQS = [null, null, { games:10, cost:200000 }, { games:25, cost:400000 }, { games:50, cost:650000 }, { games:80, cost:850000 }];
+function upgradeCost(){ const r = UPGRADE_REQS[STATE.studioLevel+1]; return r ? r.cost : Infinity; }
+function upgradeReqGames(){ const r = UPGRADE_REQS[STATE.studioLevel+1]; return r ? r.games : 0; }
+function marketingCost(){ return Math.round(12000 + STATE.fans * 4); }
+function marketingGain(){ return Math.round(400 + STATE.fans * 0.18); }
+function patchCost(){ return 5000 + STATE.studioLevel * 1500; }
+function hireCost(){ return HIRE_COST_BASE + HIRE_COST_PER_EMP * STATE.employees; }
+function getEffTarget(){ const p = STATE.project; return !p ? 0 : Math.max(1, Math.round(p.targetMonths * (1 - 0.03 * STATE.employees))); }
+
+function generateRivalGame(){
+  const g = pick(GENRES), s = 4 + Math.random() * 5, sr = Math.round(s * 10) / 10;
+  STATE.rivalGamesThisYear.push({ year: STATE.year, genre: g, score: sr });
+  STATE.rival.money += Math.round(s * 50000);
+  STATE.rival.fans += Math.round(s * 200);
+  log("🏢 <span class='title'>" + RIVAL_NAME + " sort un jeu</span>Genre : <span class='pk'>" + g + "</span> · Note : <b>" + (sr*2).toFixed(1) + "/20</b>", 'rival');
+  if(currentTab !== 'rival'){
+    const b = $('rivalBadge');
+    if(b) b.style.display = 'inline-block';
+  }
+}
+function rivalCompeteCheck(myGenre){
+  return STATE.rivalGamesThisYear.find(g => g.genre === myGenre && g.year === STATE.year) || null;
+}
+function developInHouseEngine(){
+  if(STATE.hasInHouseEngine || STATE.over) return;
+  if(STATE.money < INHOUSE_COST){ notify("💸 Fonds insuffisants", 'warn'); return; }
+  if(STATE.project){ notify("⚠️ Terminez le projet en cours", 'warn'); return; }
+  if(!confirm("Développer un moteur maison ? (100 000$ / 6 mois)")) return;
+  STATE.money -= INHOUSE_COST;
+  log("🔧 <span class='title'>Développement moteur maison</span>L'équipe planche sur la technologie...", 'info');
+  for(let i=0; i<INHOUSE_MONTHS; i++){ advanceMonth(); STATE.money -= monthlyCost(); }
+  STATE.hasInHouseEngine = true;
+  log("🔧 <span class='title'>Moteur maison prêt !</span>+3 note · −50% bugs.", 'good');
+  notify("🔧 Moteur maison opérationnel !", 'good');
+  checkGameOver(); render();
+}
+function launchExpo(){
+  if(STATE.lastExpoYear >= STATE.year || STATE.month !== EXPO_MONTH || !STATE.project || STATE.money < EXPO_COST) return;
+  STATE.money -= EXPO_COST; STATE.lastExpoYear = STATE.year;
+  const p = STATE.project, plat = getPlatformById(p.platformId), size = SIZES[p.size];
+  const prog = Math.min(1, p.months / Math.max(1, getEffTarget()));
+  const tAff = themeAffinity(p.genre, p.theme), pAff = platAffinity(p.genre, plat.type);
+  let base = 2 + tAff*2.5 + pAff*1.5 + (STATE.studioLevel-1)*0.35 + STATE.employees*0.15 + p.rnd*0.4 + (ENGINES[p.engine]||ENGINES.free).scoreBonus + size.scoreBonus;
+  const q = clamp(base * prog + 2 * (1-prog), 0, 10), qD = (q*2).toFixed(1);
+  
+  if(q >= 6){ STATE.fans += EXPO_FANS_WIN; log("🎪 <span class='title'>Triomphe au Game Expo !</span>Qualité : <span class='g'>"+qD+"/20</span>\n<span class='g'>+"+fmt(EXPO_FANS_WIN)+" fans</span>", 'expo'); notify("🎪 +50K fans !", 'good'); }
+  else if(q >= 3){ const g = Math.round(EXPO_FANS_WIN*0.3); STATE.fans += g; log("🎪 <span class='title'>Présentation correcte</span>Qualité : "+qD+"/20\n+"+fmt(g)+" fans", 'expo'); notify("🎪 +"+fmt(g)+" fans", 'info'); }
+  else { const l = Math.min(STATE.fans, EXPO_FANS_LOSS); STATE.fans -= l; log("🎪 <span class='title'>Bad buzz</span>Qualité : <span class='r'>"+qD+"/20</span>\n<span class='r'>−"+fmt(l)+" fans</span>", 'bad'); notify("🎪 −"+fmt(l)+" fans", 'warn'); }
+  render();
+}
+function buyRival(){
+  if(STATE.rival.bought) return;
+  if(STATE.money < RIVAL_BUYOUT){
+    notify("💸 Il faut " + fmt(RIVAL_BUYOUT) + " $ pour racheter " + RIVAL_NAME, 'warn');
+    return;
+  }
+  if(!confirm("Racheter " + RIVAL_NAME + " pour " + fmt(RIVAL_BUYOUT) + " $ ?\n\nLe rival disparaîtra définitivement. Cette action est irréversible.")) return;
+  STATE.money -= RIVAL_BUYOUT; STATE.rival.bought = true;
+  log("🏢 <span class='title'>Vous avez racheté " + RIVAL_NAME + " !</span>La concurrence est éliminée. Vous êtes seul sur le marché.\n<span class='m'>−" + fmt(RIVAL_BUYOUT) + " $</span>", 'good');
+  notify("🏢 " + RIVAL_NAME + " racheté !", 'good');
+  render();
+}
+
+/* =========================================================
+   TAB SWITCHING
+   ========================================================= */
+function switchTab(name){
+  currentTab = name;
+  if(name === 'game'){
+    const b = $('rivalBadge');
+    if(b) b.style.display = 'none';
+  }
+  render();
+}
+
+/* =========================================================
+   SAVE / LOAD
+   ========================================================= */
+function migrateState(s){
+  if(!s || s.version !== SAVE_VERSION) return null;
+  if(typeof s.employees !== 'number') s.employees = 0;
+  if(!Array.isArray(s.pendingPatches)) s.pendingPatches = [];
+  if(!s.platformMods) s.platformMods = {};
+  if(typeof s.gamesReleased !== 'number') s.gamesReleased = 0;
+  if(typeof s.studioLevel !== 'number') s.studioLevel = 1;
+  if(typeof s.hasInHouseEngine !== 'boolean') s.hasInHouseEngine = false;
+  if(!Array.isArray(s.hits)) s.hits = [];
+  if(!s.rival) s.rival = { name:RIVAL_NAME, money:RIVAL_INIT_MONEY, fans:RIVAL_INIT_FANS, bought:false };
+  if(!Array.isArray(s.rivalGamesThisYear)) s.rivalGamesThisYear = [];
+  if(typeof s.lastExpoYear !== 'number') s.lastExpoYear = 0;
+  if(!('project' in s)) s.project = null;
+  if(s.project){
+    if(!s.project.platformId) s.project.platformId = 'pc80';
+    if(!s.project.size || !SIZES[s.project.size]) s.project.size = 'A';
+    if(!s.project.engine) s.project.engine = 'free';
+    if(typeof s.project.title !== 'string') s.project.title = 'Projet Sans Nom';
+    if(!s.project.targetMonths) s.project.targetMonths = 6;
+  }
+  if(typeof s.money !== 'number') s.money = 50000;
+  if(!('over' in s)) s.over = null;
+  return s;
+}
+function saveGame(){
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ version:SAVE_VERSION, timestamp:Date.now(), state:STATE }));
+    log("💾 <span class='title'>Partie sauvegardée</span>État enregistré. <span class='m'>("+new Date().toLocaleTimeString('fr-FR')+")</span>", 'good');
+    notify("💾 Sauvegarde OK", 'good'); render();
+  } catch(e){ notify("Erreur sauvegarde", 'warn'); }
+}
+function loadGame(){
+  const raw = localStorage.getItem(SAVE_KEY);
+  if(!raw){ notify("Aucune sauvegarde", 'warn'); return; }
+  try {
+    const d = JSON.parse(raw), s = migrateState(d.state);
+    if(!s) throw new Error("Incompatible");
+    STATE = s; journalEl.innerHTML = '';
+    log("📂 <span class='title'>Sauvegarde chargée</span>Reprise en <b>"+MONTHS[STATE.month]+" "+STATE.year+"</b>.", 'good');
+    notify("📂 Chargé", 'good'); render();
+  } catch(e){ notify("Erreur chargement", 'warn'); }
+}
+function resetGame(){
+  try { localStorage.removeItem(SAVE_KEY); } catch(e){}
+  initGame(); log("🗑️ <span class='title'>Jeu réinitialisé</span>", 'good'); notify("🗑️ Réinitialisé", 'good');
+}
+
+/* =========================================================
+   INIT & RENDER
+   ========================================================= */
+function initGame(){
+  STATE = {
+    version: SAVE_VERSION, money: 50000, fans: 0, research: 0, year: 1980, month: 0,
+    studioLevel: 1, employees: 0, project: null, pendingPatches: [], gamesReleased: 0,
+    platformMods: {}, over: null, hasInHouseEngine: false, hits: [],
+    rival: { name: RIVAL_NAME, money: RIVAL_INIT_MONEY, fans: RIVAL_INIT_FANS, bought: false },
+    rivalGamesThisYear: [], lastExpoYear: 0
+  };
+  selection = { size:'A', genre:'RPG', theme:'Médiéval', platformId:'pc80', name:'', nameEdited:false, engine:'free', sequelIdx:-1 };
+  currentTab = 'game';
+  journalEl.innerHTML = '';
+  log("Bienvenue dans <span class='hl'>Studio Tycoon — Ultimate</span>.\nNous sommes en <b>Janvier 1980</b>. Fonds : <span class='y'>50 000 $</span>.", 'sys');
+  log("🎯 <b>Objectif</b> : 1 000 000 $. Faillite si < 5 000 $ sans projet.", 'info');
+  log("🎬 <b>5 envergures</b>. AA = Niv.2 + 1994. AAA = Niv.3 + 2000. AAAA = Niv.4 + 2010.", 'warn');
+  log("🔧 <b>Moteur</b> : le gratuit donne −2 en note. Le moteur maison (+3, −50% bugs) coûte 100K$ et 6 mois.", 'info');
+  log("🏢 <b>Rival</b> : consultez l'onglet <b>Studio Rival</b> pour suivre la concurrence ou la racheter (5M$).", 'info');
+  log("🎪 <b>Game Expo</b> : chaque juin, présentez votre jeu (20K$) pour gagner jusqu'à 50K fans.", 'info');
+  log("💡 <b>Astuce</b> : un jeu à 16/20+ est un Hit → sa suite coûte −20% et rapporte +50%.", 'sys');
+  render();
+}
+function boot(){
+  const raw = localStorage.getItem(SAVE_KEY);
+  if(raw){
+    try {
+      const d = JSON.parse(raw), s = migrateState(d.state);
+      if(s){ STATE = s; journalEl.innerHTML = ''; log("📂 <span class='title'>Session restaurée</span>", 'good'); render(); return; }
+    } catch(e){}
+  }
+  initGame();
+}
+
+function render(){
+  $('sMoney').textContent = fmt(STATE.money) + ' $';
+  $('sMoney').style.color = STATE.money < 10000 ? 'var(--red)' : 'var(--gold)';
+  $('sFans').textContent = fmt(STATE.fans);
+  $('sRes').textContent = fmt(STATE.research);
+  $('sDate').textContent = MONTHS[STATE.month] + ' ' + STATE.year;
+  const sal = STATE.employees * EMP_SALARY;
+  $('sTeam').textContent = STATE.employees + ' · ' + (sal >= 1000 ? Math.round(sal/1000)+'K' : sal) + '$';
+
+  const isRival = currentTab === 'rival';
+  $('tabGame').classList.toggle('active', !isRival);
+  $('tabRival').classList.toggle('active', isRival);
+  $('journal').classList.toggle('hidden', isRival);
+  $('actions').classList.toggle('hidden', isRival);
+  $('rivalView').classList.toggle('hidden', !isRival);
+  $('projectBar').style.display = 'none';
+
+  const p = STATE.project;
+  if(!isRival && p){
+    const pb = $('projectBar');
+    pb.style.display = 'block';
+    const eff = getEffTarget(), pct = Math.round(Math.min(150, (p.months/eff)*100));
+    const over = pct > 115, done = pct >= 85 && pct <= 115;
+    const sc = p.size === 'AAAA' ? 'aaaa' : (p.size === 'AAA' ? 'aaa' : '');
+    const plat = getPlatformById(p.platformId);
+    const engClass = p.engine === 'inHouse' ? 'engine' : '', engLbl = p.engine === 'inHouse' ? 'Maison' : 'Gratuit';
+    pb.className = over ? 'bug' : '';
+    pb.innerHTML = `<div class="pb-title">▶ <b>${esc(p.title)}</b> <span class="pb-size ${sc}">${p.size}</span><span class="pb-size ${engClass}">${engLbl}</span> · ${p.genre} / ${p.theme} / ${plat.name}</div>
+      <div class="pb-row"><div class="pb-track"><div class="pb-fill ${over?'over':(done?'done':'')}" style="width:${Math.min(100,pct)}%"></div></div>
+      <span class="pb-pct">${pct}%</span><span class="pb-info">${p.months}/${eff} mois</span></div>`;
+  } else if(!isRival && STATE.pendingPatches.length > 0){
+    const pb = $('projectBar');
+    pb.style.display = 'block'; pb.className = 'bug';
+    pb.innerHTML = `🐞 <b>${esc(STATE.pendingPatches[0].title)}</b> a ${STATE.pendingPatches[0].bugs} bug(s) — patch disponible`;
+  }
+
+  if(isRival){
+    const r = STATE.rival;
+    $('rivalIcon').textContent = r.bought ? '☠️' : '🏢';
+    $('rivalNameView').textContent = r.name || RIVAL_NAME;
+    $('rivalNameInfo').textContent = r.name || RIVAL_NAME;
+    $('rivalFansView').textContent = fmt(r.fans);
+    $('rivalMoneyView').textContent = fmt(r.money) + ' $';
+    $('rivalGamesView').textContent = STATE.rivalGamesThisYear.length;
+    
+    const status = $('rivalStatusView');
+    if(r.bought){ status.textContent = '☠️ Racheté'; status.classList.add('dead'); }
+    else { status.textContent = '● Actif'; status.classList.remove('dead'); }
+    
+    const genresCount = {};
+    STATE.rivalGamesThisYear.forEach(g => { genresCount[g.genre] = (genresCount[g.genre]||0) + 1; });
+    const topGenres = Object.entries(genresCount).sort((a,b) => b[1]-a[1]).slice(0,2).map(e => e[0]);
+    $('rivalGenresView').textContent = topGenres.length ? topGenres.join(', ') : '—';
+    
+    $('rivalYearView').textContent = STATE.year;
+    const lastGame = STATE.rivalGamesThisYear[STATE.rivalGamesThisYear.length-1];
+    $('rivalLastGameView').textContent = lastGame ? `${lastGame.genre} (${(lastGame.score*2).toFixed(1)}/20)` : '—';
+    $('rivalYourFansView').textContent = fmt(STATE.fans) + ' fans';
+    
+    const diff = r.fans - STATE.fans;
+    const diffEl = $('rivalDiffView');
+    if(diff > 0){ diffEl.textContent = 'Rival +' + fmt(diff); diffEl.style.color = 'var(--red)'; }
+    else if(diff < 0){ diffEl.textContent = 'Vous +' + fmt(-diff); diffEl.style.color = 'var(--green)'; }
+    else { diffEl.textContent = 'Égalité'; diffEl.style.color = 'var(--muted)'; }
+    
+    const btn = $('btnBuyRivalView');
+    if(r.bought) btn.classList.add('hidden');
+    else {
+      btn.classList.remove('hidden'); btn.disabled = STATE.money < RIVAL_BUYOUT;
+      btn.textContent = STATE.money >= RIVAL_BUYOUT ? `🏢 Racheter ${RIVAL_NAME} (5 000 000$)` : `💸 Racheter (manque ${fmt(RIVAL_BUYOUT - STATE.money)}$)`;
+    }
+  }
+
+  const over = STATE.over !== null, hasP = !!p, hasPatch = STATE.pendingPatches.length > 0;
+  const startSize = SIZES[selection.size], canStart = startSize && STATE.money >= startSize.startCost;
+  const expoAvail = !over && hasP && STATE.month === EXPO_MONTH && STATE.lastExpoYear < STATE.year;
+
+  const show = {
+    btnCreate: !over && !hasP, btnWork: !over && hasP, btnSkip: !over && hasP, btnRnd: !over && hasP,
+    btnRelease: !over && hasP, btnCancel: !over && hasP, btnExpo: expoAvail,
+    btnPatch: !over && !hasP && hasPatch, btnDevelopEngine: !over && !STATE.hasInHouseEngine && !hasP,
+    btnHire: !over, btnUpgrade: !over, btnMarketing: !over, btnSave: true, btnLoad: true, btnRestart: over
+  };
+  for(const id in show) $(id).classList.toggle('hidden', !show[id]);
+  if(over){ renderEndButtons(); return; }
+
+  if(!hasP){ $('btnCreate').textContent = canStart ? `🎮 Créer un jeu (${selection.size} · ${fmt(startSize.startCost)}$)` : '💸 Fonds insuffisants'; $('btnCreate').disabled = !canStart; }
+  if(hasP){
+    const cost = monthlyCost(), canWork = STATE.money >= cost;
+    $('btnWork').textContent = canWork ? `🔨 Travailler 1 mois (−${fmt(cost)}$)` : `💸 Manque ${fmt(cost)}$`; $('btnWork').disabled = !canWork;
+    const rem = Math.max(0, getEffTarget() - p.months);
+    $('btnSkip').textContent = rem > 0 ? `⏩ +${rem} mois` : '⏩ Idéal atteint'; $('btnSkip').disabled = rem === 0 || !canWork;
+    $('btnRnd').textContent = p.rnd >= 3 ? '🔬 R&D (max)' : '🔬 R&D (+0.4) · 15pts'; $('btnRnd').disabled = STATE.research < 15 || p.rnd >= 3;
+    $('btnRelease').disabled = p.months < 1;
+  }
+  if(expoAvail){ $('btnExpo').textContent = '🎪 Game Expo (20K$)'; $('btnExpo').disabled = STATE.money < EXPO_COST; }
+  if(hasPatch && !hasP){
+    const g = STATE.pendingPatches[0], pc = patchCost();
+    $('btnPatch').textContent = STATE.money >= pc ? `🩹 Patcher "${esc(g.title)}" (−${fmt(pc)}$)` : `💸 Patch impossible`; $('btnPatch').disabled = STATE.money < pc;
+  }
+  if(STATE.employees >= MAX_EMPLOYEES){ $('btnHire').textContent = '👥 Équipe complète'; $('btnHire').disabled = true; }
+  else { const hc = hireCost(); $('btnHire').textContent = `👥 Recruter (${STATE.employees}/${MAX_EMPLOYEES}) · ${fmt(hc)}$`; $('btnHire').disabled = STATE.money < hc; }
+  if(STATE.studioLevel >= 5){ $('btnUpgrade').textContent = '🏢 Studio max'; $('btnUpgrade').disabled = true; }
+  else {
+    const cost = upgradeCost(), req = upgradeReqGames(), go = STATE.gamesReleased >= req, mo = STATE.money >= cost;
+    if(!go){ $('btnUpgrade').textContent = `🔒 Niv.${STATE.studioLevel+1} · ${STATE.gamesReleased}/${req} jeux`; $('btnUpgrade').disabled = true; }
+    else if(!mo){ $('btnUpgrade').textContent = `💰 Niv.${STATE.studioLevel+1} · ${fmt(cost)}$`; $('btnUpgrade').disabled = true; }
+    else { $('btnUpgrade').textContent = `🏢 Niv.${STATE.studioLevel+1} · ${fmt(cost)}$`; $('btnUpgrade').disabled = false; }
+  }
+  const mk = marketingCost();
+  $('btnMarketing').textContent = `📣 Marketing (+${fmt(marketingGain())}) · ${fmt(mk)}$`; $('btnMarketing').disabled = STATE.money < mk;
+  $('btnLoad').disabled = !localStorage.getItem(SAVE_KEY);
+}
+function renderEndButtons(){ $('btnRestart').classList.remove('hidden'); $('btnRestart').textContent = STATE.over === 'win' ? '🏆 Rejouer' : '🔄 Recommencer'; }
+
+/* =========================================================
+   MODAL CREATION
+   ========================================================= */
+function buildOptions(){
+  const gEl = $('optGenre'), tEl = $('optTheme'), pEl = $('optPlatform'), sEl = $('optSize'), eEl = $('optEngine');
+  gEl.innerHTML = ''; tEl.innerHTML = ''; pEl.innerHTML = ''; sEl.innerHTML = ''; eEl.innerHTML = '';
+  const era = getEra(STATE.year);
+
+  const sizeKeys = ['Indé','A','AA','AAA','AAAA'];
+  let first = null;
+  sizeKeys.forEach(sk => {
+    const s = SIZES[sk], av = sizeAvailable(sk);
+    if(av.ok && !first) first = sk;
+    const d = document.createElement('div');
+    if(av.ok){
+      d.className = 'opt opt-size' + (selection.size===sk ? ' selected' : '');
+      d.innerHTML = `<div><div class="name">${sk}</div><div class="meta">${s.idealMonths[era]} mois · ${fmt(ERA_BASE_MONTHLY[era]*s.costMult)}$/m</div></div><div class="cost">${fmt(s.startCost)}$</div>`;
+      d.onclick = () => { selection.size = sk; buildOptions(); };
+    } else {
+      d.className = 'opt opt-size locked';
+      d.innerHTML = `<div><div class="name">${sk}</div><div class="meta">🔒 Niv.${s.minStudioLevel} (${STATE.studioLevel}) · ${s.minYear} (${STATE.year})</div></div><div class="cost">—</div>`;
+      d.onclick = () => notify(`Bloqué : Niv.${s.minStudioLevel} et année ${s.minYear} requis`, 'warn');
+    }
+    sEl.appendChild(d);
+  });
+  if(!sizeAvailable(selection.size).ok && first){ selection.size = first; buildOptions(); return; }
+
+  ['free','inHouse'].forEach(k => {
+    const e = ENGINES[k], av = k==='free' || STATE.hasInHouseEngine;
+    const d = document.createElement('div');
+    if(!av) d.className = 'opt opt-size locked';
+    else {
+      d.className = 'opt opt-size ' + (k==='inHouse'?'bonus':'penalty') + (selection.engine===k?' selected':'');
+      d.innerHTML = `<div><div class="name">${e.name}</div><div class="meta">${k==='inHouse'?'+3 note · −50% bugs':'−2 note'}</div></div><div class="cost">Gratuit</div>`;
+      d.onclick = () => { selection.engine = k; buildOptions(); };
+    }
+    eEl.appendChild(d);
+  });
+
+  if(STATE.hits.length > 0){
+    $('sequelWrap').classList.remove('hidden');
+    const sq = $('optSequel'); sq.innerHTML = '';
+    const d0 = document.createElement('div');
+    d0.className = 'opt opt-size' + (selection.sequelIdx<0?' selected':'');
+    d0.innerHTML = `<div><div class="name">🎬 Jeu original</div><div class="meta">Standard</div></div>`;
+    d0.onclick = () => { selection.sequelIdx = -1; buildOptions(); };
+    sq.appendChild(d0);
+    STATE.hits.forEach((h, i) => {
+      const d = document.createElement('div');
+      d.className = 'opt opt-size bonus' + (selection.sequelIdx===i?' selected':'');
+      d.innerHTML = `<div><div class="name">↪ Suite de "${esc(h.name)}"</div><div class="meta">${h.genre} · ${h.theme} · Note ${(h.score*2).toFixed(1)}/20</div></div><div class="cost">−20%</div>`;
+      d.onclick = () => {
+        selection.sequelIdx = i; selection.genre = h.genre; selection.theme = h.theme; selection.size = h.size;
+        selection.name = h.name + ' 2'; selection.nameEdited = false; setInputValue(selection.name); buildOptions();
+      };
+      sq.appendChild(d);
+    });
+  } else { $('sequelWrap').classList.add('hidden'); selection.sequelIdx = -1; }
+
+  GENRES.forEach(g => {
+    const d = document.createElement('div'); d.className = 'opt' + (selection.genre===g?' selected':''); d.textContent = g;
+    d.onclick = () => { selection.genre = g; if(!selection.nameEdited && selection.sequelIdx<0) { selection.name = generateEpicName(g, selection.theme); setInputValue(selection.name); } buildOptions(); };
+    gEl.appendChild(d);
+  });
+  THEMES.forEach(t => {
+    const d = document.createElement('div'); d.className = 'opt' + (selection.theme===t?' selected':''); d.textContent = t;
+    d.onclick = () => { selection.theme = t; if(!selection.nameEdited && selection.sequelIdx<0) { selection.name = generateEpicName(selection.genre, t); setInputValue(selection.name); } buildOptions(); };
+    tEl.appendChild(d);
+  });
+  const un = getUnlockedPlatforms();
+  if(!un.find(p=>p.id===selection.platformId)) selection.platformId = un[un.length-1].id;
+  PLATFORMS.forEach(pl => {
+    const d = document.createElement('div');
+    if(pl.year > STATE.year){ d.className = 'opt locked'; d.textContent = `🔒 ${pl.name} (${pl.year})`; }
+    else { d.className = 'opt' + (selection.platformId===pl.id?' selected':''); d.textContent = pl.name; d.onclick = () => { selection.platformId = pl.id; buildOptions(); }; }
+    pEl.appendChild(d);
+  });
+  $('cntSize').textContent = eraLabel(era) + ' · Niv.' + STATE.studioLevel;
+  $('cntName').textContent = selection.nameEdited ? 'manuscrit' : 'généré';
+}
+function setInputValue(v){ const i = $('inpName'); if(i && i.value !== (v||'')) i.value = v||''; }
+function openModal(){ if(STATE.over || STATE.money < SIZES[selection.size].startCost) return; if(!selection.name) selection.name = generateEpicName(selection.genre, selection.theme); setInputValue(selection.name); buildOptions(); $('modal').classList.add('open'); }
+function closeModal(){ $('modal').classList.remove('open'); }
+function openSettings(){ $('settingsModal').classList.add('open'); }
+function closeSettings(){ $('settingsModal').classList.remove('open'); }
+
+/* =========================================================
+   GAME ACTIONS
+   ========================================================= */
+function startProject(){
+  const av = sizeAvailable(selection.size);
+  if(!av.ok || (selection.engine==='inHouse' && !STATE.hasInHouseEngine)) return;
+  const z = SIZES[selection.size], era = getEra(STATE.year), plat = getPlatformById(selection.platformId);
+  const sequel = selection.sequelIdx >= 0 ? STATE.hits[selection.sequelIdx] : null;
+  const cMult = sequel ? SEQUEL_COST_MULT : 1, tMult = sequel ? SEQUEL_TIME_MULT : 1;
+  const cost = Math.round(z.startCost * cMult);
+  if(STATE.money < cost) return;
+
+  const base = z.idealMonths[era], v = Math.max(0, Math.round(base*0.15));
+  const target = Math.max(1, Math.round((base + Math.floor(Math.random()*(v*2+1)) - v) * tMult));
+  const name = (selection.name||'').trim() || 'Projet Sans Nom';
+
+  STATE.money -= cost;
+  STATE.project = { title: name, genre: selection.genre, theme: selection.theme, platformId: selection.platformId, size: selection.size, era: era, months: 0, targetMonths: target, rnd: 0, bugRisk: 0, engine: selection.engine, sequelOf: sequel?sequel.name:null, sequelMultRevenue: sequel?SEQUEL_REVENUE_MULT:1, sequelScoreBonus: sequel?SEQUEL_SCORE_BONUS:0 };
+  closeModal();
+  log(`🎬 <span class="title">Nouveau projet : "${esc(name)}"</span>${sequel ? "\n↪ Suite de \""+esc(sequel.name)+"\" (−20% coût, +50% ventes)" : ""}\n<span class="m">${selection.genre} · ${selection.theme} · ${plat.name}</span>\nObjectif : <b>${getEffTarget()} mois</b> · Coût : <b>${fmt(cost)}$</b>`, 'info');
+  render();
+}
+function doWork(){
+  const p = STATE.project; if(!p || STATE.over || STATE.money < monthlyCost()) return;
+  advanceMonth(); p.months++; STATE.money -= monthlyCost(); STATE.research += 3 + STATE.studioLevel*2;
+  log(`📅 <b>${MONTHS[STATE.month]} ${STATE.year}</b> — mois ${p.months}/${getEffTarget()}\n${pick(FLAVOR)}`, 'info');
+  if(Math.random() < 0.12) triggerRandomEvent(); checkGameOver(); render();
+}
+function workToIdeal(){
+  const p = STATE.project; if(!p || STATE.over) return;
+  const rem = Math.max(0, getEffTarget() - p.months); if(!rem) return;
+  for(let i=0; i<rem; i++){ if(STATE.money < monthlyCost()) break; advanceMonth(); p.months++; STATE.money -= monthlyCost(); STATE.research += 3 + STATE.studioLevel*2; if(Math.random()<0.08) triggerRandomEvent(); }
+  checkGameOver(); render();
+}
+function investRnd(){ const p = STATE.project; if(!p || STATE.research < 15 || p.rnd >= 3) return; STATE.research -= 15; p.rnd++; log("🔬 R&D investie : Qualité +0.4", 'good'); render(); }
+function releaseGame(){
+  const p = STATE.project; if(!p || p.months < 1) return;
+  const plat = getPlatformById(p.platformId), z = SIZES[p.size], eng = ENGINES[p.engine]||ENGINES.free, ratio = p.months / getEffTarget();
+  const tAff = themeAffinity(p.genre, p.theme), pAff = platAffinity(p.genre, plat.type);
+  const rivalConflit = rivalCompeteCheck(p.genre);
+  const pStat = platformStatus(plat);
+
+  let raw = 2 + tAff*2.5 + pAff*1.5 + (STATE.studioLevel-1)*0.35 + (plat.power-1)*0.4 + p.rnd*0.4 + STATE.employees*0.15 + z.scoreBonus + eng.scoreBonus + (p.sequelScoreBonus||0) + (Math.random()-.5);
+  let mB = ratio<=.3?-2.5:ratio<=.5?-1.5:ratio<=.7?-.7:ratio<=.85?-.1:ratio<=1.15?.9:ratio<=1.3?.4:ratio<=1.5?-.3:ratio<=2?-1.2:-2;
+  raw += mB; if(rivalConflit) raw -= 1; raw = clamp(raw, .5, 10);
+
+  let bc = 0.12; if(ratio<.5) bc+=.4; else if(ratio<.8) bc+=.15; else if(ratio>1.5) bc+=.2;
+  bc *= z.bugMult * eng.bugMult; bc -= (STATE.studioLevel-1)*.06 + p.rnd*.05 + STATE.employees*.04 + (p.bugRisk||0);
+  bc = Math.max(.02, bc);
+
+  let bugs = 0;
+  if(Math.random() < bc){ const r = Math.random(), m = p.size==='AAAA'?5:p.size==='AAA'?4:3; bugs = r>.95?m:r>.85?Math.min(m,3):r>.6?Math.min(m,2):1; raw -= bugs*1.1; }
+  raw = clamp(raw, .5, 10);
+  const score = Math.round(raw*10)/10, s20 = (score*2).toFixed(1);
+
+  let rev = Math.pow(score,2.1)*900*platformMarket(plat)*pStat.mod*(1+Math.sqrt(STATE.fans)/40)*(1-bugs*.25)*z.revenueMult*(.85+Math.random()*.3)*(p.sequelMultRevenue||1);
+  if(rivalConflit) rev *= 0.5; rev = Math.max(0, Math.round(rev));
+
+  const fg = Math.round(Math.pow(score,2)*8*z.fansMult*(.85+Math.random()*.3)*(1-bugs*.25)*(rivalConflit?.5:1));
+  const fl = bugs>=2 ? Math.round(bugs*25*Math.max(1,z.fansMult)) : 0;
+  const rg = Math.round(score*6);
+
+  STATE.money += rev; STATE.fans = Math.max(0, STATE.fans+fg-fl); STATE.research += rg; STATE.gamesReleased++;
+
+  let warn = "";
+  if(pStat.warnings.length) warn += `\n⚠️ <span class="r">${plat.name} : ${pStat.warnings.join(' · ')} — ventes ÷3.</span>`;
+  if(rivalConflit) warn += `\n🏢 <span class="r">${RIVAL_NAME} a sorti un jeu ${p.genre} cette année — concurrence.</span>`;
+
+  log(`🚀 Votre jeu <span class="title">"${esc(p.title)}"</span> (${p.genre} · ${p.theme}) est sorti !\n\nNote : <span class="${score>=8?'g':score>=6?'y':'r'}"><b>${s20} / 20</b></span>\n${warn}\n\n<span class="y">Ventes : +${fmt(rev)} $</span>\n<span class="g">Fans : +${fmt(fg)}</span> · <span class="p">Rech. : +${rg}</span>`, 'game');
+
+  if(score >= 8){ STATE.hits.push({ name: p.title, genre: p.genre, theme: p.theme, size: p.size, platformId: p.platformId, score: score }); log(`⭐ <b>HIT !</b> "${esc(p.title)}" devient un classique. Suite débloquée.`, 'good'); notify("⭐ Hit ! Suite dispo", 'good'); }
+  if(bugs > 0){ notify(`⚠ "${p.title}" : ${bugs} bug(s) !`, 'warn'); STATE.pendingPatches.push({ title: p.title, size: p.size, genre: p.genre, theme: p.theme, platformId: p.platformId, score: score, revenue: rev, bugs: bugs }); }
+
+  STATE.project = null; if(STATE.money >= 1000000) winGame(); else { checkGameOver(); render(); }
+}
+function cancelProject(){ if(!STATE.project) return; STATE.project = null; log("🗑️ Projet abandonné.", 'bad'); checkGameOver(); render(); }
+function patchGame(){
+  if(!STATE.pendingPatches.length || STATE.money < patchCost()) return;
+  const g = STATE.pendingPatches[0], c = patchCost(); STATE.money -= c; advanceMonth();
+  const r = Math.round(g.revenue*.3*(1+STATE.studioLevel*.1)), f = Math.round(20*g.bugs*(1+STATE.studioLevel*.2));
+  STATE.money += r; STATE.fans += f; STATE.pendingPatches.shift();
+  log(`🩹 <span class="title">Patch pour "${esc(g.title)}"</span>\n<span class="g">+${fmt(r)} $ · +${f} fans</span>`, 'good');
+  notify("✓ Patch déployé", 'good'); checkGameOver(); render();
+}
+function hireEmployee(){ if(STATE.employees >= MAX_EMPLOYEES || STATE.money < hireCost()) return; STATE.money -= hireCost(); STATE.employees++; log(`👥 <span class="title">Employé recruté</span>(${STATE.employees}/${MAX_EMPLOYEES})`, 'good'); render(); }
+function upgradeStudio(){
+  if(STATE.studioLevel >= 5 || STATE.gamesReleased < upgradeReqGames() || STATE.money < upgradeCost()) return;
+  STATE.money -= upgradeCost(); STATE.studioLevel++;
+  log(`🏢 <span class="title">Studio niv.${STATE.studioLevel}</span>Nouveaux paliers disponibles.`, 'good'); checkGameOver(); render();
+}
+function marketing(){ if(STATE.money < marketingCost()) return; STATE.money -= marketingCost(); STATE.fans += marketingGain(); log(`📣 <span class="title">Campagne marketing</span><span class="g">+${fmt(marketingGain())} fans</span>`, 'money'); render(); }
+
+function triggerRandomEvent(){
+  const pool = [];
+  pool.push({ w:20, run:()=>{ const l=5+Math.floor(Math.random()*15); STATE.research=Math.max(0,STATE.research-l); log(`👋 <b>Départ d'un dev</b> −${l} pts rech.`, 'event'); }});
+  if(STATE.money>20000) pool.push({ w:12, run:()=>{ const l=Math.round(STATE.money*.08); STATE.money-=l; log(`🏛️ <b>Contrôle fiscal</b> −${fmt(l)}$`, 'event'); }});
+  pool.push({ w:10, run:()=>{ const g=5000+Math.floor(Math.random()*15000); STATE.money+=g; log(`🎁 <b>Subvention</b> +${fmt(g)}$`, 'event'); }});
+  if(STATE.year>=2005) pool.push({ w:15, run:()=>{ const g=20+Math.floor(Math.random()*80); STATE.fans+=g; log(`🔥 <b>Buzz viral</b> +${g} fans`, 'event'); }});
+  if(STATE.project && STATE.project.months>=3) pool.push({ w:12, run:()=>{ log("🐞 <b>Bug critique interne</b>", 'event'); STATE.project.bugRisk=(STATE.project.bugRisk||0)+.15; }});
+  const tot = pool.reduce((s,e)=>s+e.w,0); let r = Math.random()*tot;
+  for(const e of pool){ r -= e.w; if(r<=0){ e.run(); break; } }
+}
+function checkGameOver(){
+  if(STATE.over) return;
+  if(STATE.money < 0) loseGame("Trésorerie négative.");
+  else if(!STATE.project && STATE.money < SIZES['Indé'].startCost) loseGame("Fonds insuffisants pour un projet Indé.");
+}
+function loseGame(r){ STATE.over='lose'; STATE.money=Math.max(0,STATE.money); log(`💀 <span class="title">FAILLITE</span>${r}`, 'bad'); render(); }
+function winGame(){ STATE.over='win'; log("🏆 <span class='title'>VICTOIRE !</span>Vous avez atteint 1 000 000 $ !", 'good'); render(); }
+
+/* =========================================================
+   LISTENERS & INIT
+   ========================================================= */
+$('btnCreate').addEventListener('click', openModal);
+$('btnWork').addEventListener('click', doWork);
+$('btnSkip').addEventListener('click', workToIdeal);
+$('btnRnd').addEventListener('click', investRnd);
+$('btnRelease').addEventListener('click', releaseGame);
+$('btnCancel').addEventListener('click', cancelProject);
+$('btnExpo').addEventListener('click', launchExpo);
+$('btnPatch').addEventListener('click', patchGame);
+$('btnDevelopEngine').addEventListener('click', developInHouseEngine);
+$('btnHire').addEventListener('click', hireEmployee);
+$('btnUpgrade').addEventListener('click', upgradeStudio);
+$('btnMarketing').addEventListener('click', marketing);
+$('btnSave').addEventListener('click', saveGame);
+$('btnLoad').addEventListener('click', loadGame);
+$('btnRestart').addEventListener('click', initGame);
+$('btnStart').addEventListener('click', startProject);
+$('btnCancelCreate').addEventListener('click', closeModal);
+$('modal').addEventListener('click', e => { if(e.target === $('modal')) closeModal(); });
+
+$('tabGame').addEventListener('click', () => switchTab('game'));
+$('tabRival').addEventListener('click', () => switchTab('rival'));
+$('btnBuyRivalView').addEventListener('click', buyRival);
+
+$('btnSettings').addEventListener('click', openSettings);
+$('btnSettingsClose').addEventListener('click', closeSettings);
+$('settingsModal').addEventListener('click', e => { if(e.target === $('settingsModal')) closeSettings(); });
+$('btnSettingsSave').addEventListener('click', saveGame);
+$('btnSettingsLoad').addEventListener('click', loadGame);
+$('btnSettingsReset').addEventListener('click', () => { if(confirm("Réinitialiser ?")){ resetGame(); closeSettings(); } });
+
+$('inpName').addEventListener('input', e => { selection.name = e.target.value; selection.nameEdited = e.target.value.trim().length > 0; $('cntName').textContent = selection.nameEdited ? 'manuscrit' : 'généré'; });
+$('btnGenName').addEventListener('click', () => { selection.name = generateEpicName(selection.genre, selection.theme); selection.nameEdited = false; setInputValue(selection.name); $('cntName').textContent = 'généré'; });
+
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+boot();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('[PWA] Service Worker enregistré:', reg.scope))
+      .catch(err => console.error('[PWA] Erreur:', err));
+  });
+}
+</script>
+</body>
+</html>
